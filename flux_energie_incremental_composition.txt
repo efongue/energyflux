@@ -1,0 +1,18 @@
+Titre: Flux d'Énergie - Incremental Loop
+Tempo: 128 BPM
+Mesure: 4/4
+Tonalité: Mi mineur
+Durée: 16 mesures, environ 30 secondes
+Progression: Em - C - G - D
+
+Instruments:
+- Kick quatre temps avec variations
+- Snare/clap sur 2 et 4
+- Hi-hats en doubles croches
+- Basse pulsée E2/C2/G2/D2
+- Arpège synthé en doubles croches
+- Mélodie courte style jeu vidéo
+- Pads doux et shimmers de progression
+
+Intention:
+Boucle entraînante, lumineuse et répétable pour un jeu incrémental de flux d'énergie.

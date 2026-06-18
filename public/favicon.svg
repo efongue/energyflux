@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="favGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#8af700" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Hexagon Dark Background -->
+  <path
+    d="M 28 10 L 72 10 L 94 50 L 72 90 L 28 90 L 6 50 Z"
+    fill="#020617"
+  />
+
+  <!-- Outer Hexagon Outline -->
+  <path
+    d="M 28 10 L 72 10 L 94 50 L 72 90 L 28 90 L 6 50 Z"
+    fill="none"
+    stroke="url(#favGrad)"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Inner Hexagon Outline -->
+  <path
+    d="M 33 19 L 67 19 L 85 50 L 67 81 L 33 81 L 15 50 Z"
+    fill="none"
+    stroke="rgba(0, 242, 254, 0.25)"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Circuit Nodes & Connections -->
+  <circle cx="16" cy="30" r="3.5" fill="#00f2fe" />
+  <path d="M 16 30 L 28 30" stroke="#00f2fe" stroke-width="2" stroke-linecap="round" />
+  
+  <circle cx="10" cy="50" r="3.5" fill="#00f2fe" />
+  <circle cx="84" cy="30" r="3.5" fill="#00f2fe" />
+  <circle cx="80" cy="65" r="3.5" fill="#8af700" />
+  
+  <circle cx="62" cy="82" r="3.5" fill="#8af700" />
+  <path d="M 62 82 L 48 82" stroke="#8af700" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Central Lightning Bolt -->
+  <path
+    d="M 54 22 L 36 50 L 48 50 L 44 78 L 64 48 L 52 48 Z"
+    fill="#ffffff"
+  />
+</svg>

@@ -1,0 +1,12 @@
+Palier,Source d'énergie,Production_MW,Production_affichée
+1,Panneaux solaires,0.005,5 kW
+2,Petite éolienne,0.05,50 kW
+3,Ferme solaire,0.5,500 kW
+4,Parc éolien,3.0,3 MW
+5,Centrale biomasse,10.0,10 MW
+6,Puits géothermique,20.0,20 MW
+7,Barrage hydroélectrique,50.0,50 MW
+8,Centrale au gaz,250.0,250 MW
+9,Centrale à charbon,500.0,500 MW
+10,Centrale nucléaire,1000.0,1 GW
+11,Réacteur de fusion,2000.0,2 GW
