@@ -55,27 +55,12 @@ type EnergyNodeProps = {
   value: ReactNode
   color: string
   className: string
+  levelBadge?: string
   isEmphasized?: boolean
   onClick?: () => void
   actionLabel?: string
   actionDisabled?: boolean
   disabledReason?: string
-}
-
-type HudStatTone = 'cyan' | 'yellow' | 'emerald' | 'violet' | 'orange'
-
-type HudStatCardProps = {
-  label: string
-  value: ReactNode
-  detail: ReactNode
-  icon: ReactNode
-  tone: HudStatTone
-  className?: string
-  detailClassName?: string
-  detailTitle?: string
-  subdetail?: ReactNode
-  subdetailTitle?: string
-  valueTitle?: string
 }
 
 type UpgradeTone = 'cyan' | 'violet'
@@ -88,10 +73,16 @@ type UpgradeRowProps = {
   currentValueLabel: string
   tone: UpgradeTone
   children?: ReactNode
+  isPurchasePulsing?: boolean
   isDisabled?: boolean
   disabledReason?: string
   isMaxed?: boolean
   onBuy: () => void
+}
+
+type PurchaseEffect = {
+  key: string
+  token: number
 }
 
 type ShopTab = 'generators' | 'consumption' | 'hub' | 'upgrades'
@@ -139,7 +130,7 @@ const shopTabs: ReadonlyArray<{
   icon: LucideIcon
 }> = [
   { id: 'generators', label: 'Production', icon: Factory },
-  { id: 'consumption', label: 'Conso', icon: House },
+  { id: 'consumption', label: 'Consommateur', icon: House },
   { id: 'hub', label: 'Nœud', icon: CircuitBoard },
   { id: 'upgrades', label: 'Recherches', icon: GraduationCap },
 ]
@@ -185,7 +176,7 @@ const MANUAL_GRID_FLOW_VISUAL_DURATION_MS = 2600
 const MAX_LOG_ENTRIES = 60
 const FLOW_TICK_INTERVAL_MS = 1000
 type FlowPerformanceLevel = 'normal' | 'reduced' | 'minimal'
-const FLOW_PERF_SAMPLE_SIZE = 18
+const FLOW_PERF_SAMPLE_SIZE = 120
 const FLOW_PERF_REDUCED_THRESHOLD_MS = 42
 const FLOW_PERF_MINIMAL_THRESHOLD_MS = 52
 const FLOW_PERF_RECOVER_NORMAL_MS = 34
@@ -212,6 +203,18 @@ const chartBodyClassName = 'flex-1 min-h-[124px] min-w-0 lg:min-h-[132px]'
 
 const mapProducerIds = ['solar', 'wind', 'biomass', 'hydro', 'geothermal', 'gas', 'coal', 'nuclear', 'fusion'] as const
 type MapProducerId = typeof mapProducerIds[number]
+
+const mapProducerFamilyLabels: Record<MapProducerId, string> = {
+  solar: 'Solaire',
+  wind: 'Éolien',
+  biomass: 'Biomasse',
+  hydro: 'Hydraulique',
+  geothermal: 'Géothermie',
+  gas: 'Gaz',
+  coal: 'Charbon',
+  nuclear: 'Nucléaire',
+  fusion: 'Fusion',
+}
 
 const mapConsumerIds = ['residential', 'commerce', 'industry', 'publicServices', 'transport', 'data', 'research', 'climate'] as const
 type MapConsumerId = typeof mapConsumerIds[number]
@@ -241,12 +244,15 @@ const mapNodePositions: Record<MapProducerId | MapConsumerId | 'export' | 'stora
   data: 'right-[4%] top-[62%]',
   research: 'right-[4%] top-[73%]',
   climate: 'right-[4%] top-[84%]',
-  storage: 'left-[5%] top-[72%] sm:left-[18%] md:left-[22%] xl:left-[30%]',
-  export: 'right-[5%] top-[72%] sm:right-[18%] md:right-[22%] xl:right-[30%]',
+  storage: 'left-[5%] top-[76%] sm:left-[18%] md:left-[22%] xl:left-[30%]',
+  export: 'right-[5%] top-[76%] sm:right-[18%] md:right-[22%] xl:right-[30%]',
 }
 
-const HUB_ANCHOR_POINT = { x: 500, y: 279 }
-const MARKET_NODE_ANCHOR_POINT = { x: 627, y: 434 }
+const HUB_PRODUCER_ANCHOR_POINT = { x: 438, y: 318 }
+const HUB_STORAGE_ANCHOR_POINT = { x: 462, y: 356 }
+const HUB_MARKET_ANCHOR_POINT = { x: 538, y: 356 }
+const STORAGE_NODE_ANCHOR_POINT = { x: 418, y: 456 }
+const MARKET_NODE_ANCHOR_POINT = { x: 627, y: 456 }
 
 const STORAGE_TIERS: readonly StorageTier[] = [
   {
@@ -292,21 +298,21 @@ const clampToStorage = (value: number, capacity: number) =>
   Math.max(0, Math.min(capacity, value))
 
 const pixiFlowPaths = {
-  solar: { start: { x: 218, y: 70 }, cp1: { x: 299, y: 90 }, cp2: { x: 379, y: 220 }, end: { x: 415, y: 284 } },
-  wind: { start: { x: 218, y: 132 }, cp1: { x: 299, y: 150 }, cp2: { x: 379, y: 245 }, end: { x: 415, y: 292 } },
-  biomass: { start: { x: 218, y: 194 }, cp1: { x: 299, y: 205 }, cp2: { x: 379, y: 270 }, end: { x: 415, y: 300 } },
-  hydro: { start: { x: 218, y: 256 }, cp1: { x: 299, y: 260 }, cp2: { x: 379, y: 292 }, end: { x: 415, y: 308 } },
-  geothermal: { start: { x: 218, y: 318 }, cp1: { x: 299, y: 318 }, cp2: { x: 379, y: 312 }, end: { x: 415, y: 316 } },
-  gas: { start: { x: 218, y: 380 }, cp1: { x: 299, y: 372 }, cp2: { x: 379, y: 338 }, end: { x: 415, y: 324 } },
-  coal: { start: { x: 218, y: 442 }, cp1: { x: 299, y: 428 }, cp2: { x: 379, y: 360 }, end: { x: 415, y: 332 } },
-  nuclear: { start: { x: 218, y: 504 }, cp1: { x: 299, y: 478 }, cp2: { x: 379, y: 390 }, end: { x: 415, y: 340 } },
-  fusion: { start: { x: 218, y: 566 }, cp1: { x: 299, y: 522 }, cp2: { x: 379, y: 420 }, end: { x: 415, y: 348 } },
+  solar: { start: { x: 218, y: 70 }, cp1: { x: 306, y: 92 }, cp2: { x: 404, y: 240 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  wind: { start: { x: 218, y: 132 }, cp1: { x: 306, y: 150 }, cp2: { x: 404, y: 258 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  biomass: { start: { x: 218, y: 194 }, cp1: { x: 306, y: 205 }, cp2: { x: 404, y: 276 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  hydro: { start: { x: 218, y: 256 }, cp1: { x: 306, y: 260 }, cp2: { x: 404, y: 294 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  geothermal: { start: { x: 218, y: 318 }, cp1: { x: 306, y: 318 }, cp2: { x: 404, y: 318 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  gas: { start: { x: 218, y: 380 }, cp1: { x: 306, y: 372 }, cp2: { x: 404, y: 342 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  coal: { start: { x: 218, y: 442 }, cp1: { x: 306, y: 428 }, cp2: { x: 404, y: 360 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  nuclear: { start: { x: 218, y: 504 }, cp1: { x: 306, y: 478 }, cp2: { x: 404, y: 382 }, end: HUB_PRODUCER_ANCHOR_POINT },
+  fusion: { start: { x: 218, y: 566 }, cp1: { x: 306, y: 522 }, cp2: { x: 404, y: 404 }, end: HUB_PRODUCER_ANCHOR_POINT },
   grid: { start: { x: 770, y: 528 }, cp1: { x: 720, y: 500 }, cp2: { x: 650, y: 420 }, end: { x: 585, y: 360 } },
   gridReverse: { start: { x: 585, y: 360 }, cp1: { x: 650, y: 420 }, cp2: { x: 720, y: 500 }, end: { x: 770, y: 528 } },
-  hubToMarket: { start: HUB_ANCHOR_POINT, cp1: { x: 530, y: 335 }, cp2: { x: 627, y: 398 }, end: MARKET_NODE_ANCHOR_POINT },
-  marketToHub: { start: MARKET_NODE_ANCHOR_POINT, cp1: { x: 627, y: 398 }, cp2: { x: 530, y: 335 }, end: HUB_ANCHOR_POINT },
-  hubToStorage: { start: { x: 500, y: 279 }, cp1: { x: 430, y: 340 }, cp2: { x: 380, y: 390 }, end: { x: 402, y: 434 } },
-  storageToHub: { start: { x: 402, y: 434 }, cp1: { x: 380, y: 390 }, cp2: { x: 430, y: 340 }, end: { x: 500, y: 279 } },
+  hubToMarket: { start: HUB_MARKET_ANCHOR_POINT, cp1: { x: 560, y: 390 }, cp2: { x: 620, y: 428 }, end: MARKET_NODE_ANCHOR_POINT },
+  marketToHub: { start: MARKET_NODE_ANCHOR_POINT, cp1: { x: 620, y: 428 }, cp2: { x: 560, y: 390 }, end: HUB_MARKET_ANCHOR_POINT },
+  hubToStorage: { start: HUB_STORAGE_ANCHOR_POINT, cp1: { x: 440, y: 390 }, cp2: { x: 420, y: 428 }, end: STORAGE_NODE_ANCHOR_POINT },
+  storageToHub: { start: STORAGE_NODE_ANCHOR_POINT, cp1: { x: 420, y: 428 }, cp2: { x: 440, y: 390 }, end: HUB_STORAGE_ANCHOR_POINT },
   residential: { start: { x: 560, y: 290 }, cp1: { x: 650, y: 200 }, cp2: { x: 710, y: 105 }, end: { x: 770, y: 70 } },
   commerce: { start: { x: 560, y: 300 }, cp1: { x: 650, y: 235 }, cp2: { x: 710, y: 158 }, end: { x: 770, y: 138 } },
   industry: { start: { x: 560, y: 310 }, cp1: { x: 650, y: 260 }, cp2: { x: 710, y: 216 }, end: { x: 770, y: 206 } },
@@ -889,6 +895,8 @@ const getGeneratorLevelInfo = (generator: GeneratorState): GeneratorLevelInfo =>
 
 const getGeneratorDisplayName = (generator: GeneratorState) => getGeneratorLevelInfo(generator).shopName
 
+const formatNodeLevelBadge = (level: number) => level >= 3 ? 'Niv. MAX' : `Niv. ${level}`
+
 const getActiveConsumerLevel = (consumer: ConsumptionUpgradeState) => {
   if (consumer.level <= 0) return null
   return consumer.levels[Math.min(consumer.level - 1, consumer.levels.length - 1)]
@@ -909,6 +917,16 @@ const getConsumerUpgradeCost = (consumer: ConsumptionUpgradeState) =>
 const getConsumerLevelSummary = (consumer: ConsumptionUpgradeState) => {
   const activeLevel = getActiveConsumerLevel(consumer)
   return activeLevel ? activeLevel.name : 'À débloquer'
+}
+
+const getConsumerPaybackLabel = (cost: number, revenueGainPerMinute: number) => {
+  if (cost <= 0) return 'Déjà rentabilisé'
+  if (revenueGainPerMinute <= 0) return 'Rentabilité indisponible'
+
+  const minutes = Math.ceil(cost / revenueGainPerMinute)
+  if (minutes < 60) return `~${minutes} min pour rentabiliser`
+  if (minutes < 1440) return `~${Math.ceil(minutes / 60)} h pour rentabiliser`
+  return `~${Math.ceil(minutes / 1440)} j pour rentabiliser`
 }
 
 const getClickPowerForLevel = (level: number) => {
@@ -948,12 +966,12 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Évolution de la charge domestique de la ville.',
     level: 0,
     levels: [
-      { name: 'Maisons', demandWhPerMinute: 80, revenuePerMinute: 4, cost: 1200 },
+      { name: 'Maisons', demandWhPerMinute: 80, revenuePerMinute: 4, cost: 450 },
       { name: 'Immeubles', demandWhPerMinute: 2000, revenuePerMinute: 120, cost: 28000 },
       { name: 'Quartier résidentiel intelligent', demandWhPerMinute: 25000, revenuePerMinute: 1800, cost: 400000 },
     ],
-    baseCost: 1200,
-    costMultiplier: 1.28,
+    baseCost: 450,
+    costMultiplier: 1.22,
     icon: House,
     color: '#a78bfa',
   },
@@ -963,12 +981,12 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Activité marchande et bâtiments tertiaires.',
     level: 0,
     levels: [
-      { name: 'Magasins', demandWhPerMinute: 250, revenuePerMinute: 18, cost: 2400 },
+      { name: 'Magasins', demandWhPerMinute: 250, revenuePerMinute: 18, cost: 1400 },
       { name: 'Centre commercial', demandWhPerMinute: 30000, revenuePerMinute: 1800, cost: 350000 },
       { name: "Quartier d'affaires", demandWhPerMinute: 750000, revenuePerMinute: 54000, cost: 14000000 },
     ],
-    baseCost: 2400,
-    costMultiplier: 1.3,
+    baseCost: 1400,
+    costMultiplier: 1.25,
     icon: Store,
     color: '#facc15',
   },
@@ -978,12 +996,12 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Demande productive, lourde et régulière.',
     level: 0,
     levels: [
-      { name: 'Atelier', demandWhPerMinute: 1500, revenuePerMinute: 90, cost: 15000 },
+      { name: 'Atelier', demandWhPerMinute: 1500, revenuePerMinute: 90, cost: 11000 },
       { name: 'Usine', demandWhPerMinute: 150000, revenuePerMinute: 10500, cost: 2000000 },
       { name: 'Complexe industriel', demandWhPerMinute: 5000000, revenuePerMinute: 400000, cost: 120000000 },
     ],
-    baseCost: 15000,
-    costMultiplier: 1.31,
+    baseCost: 11000,
+    costMultiplier: 1.29,
     icon: Factory,
     color: '#fb923c',
   },
@@ -993,12 +1011,12 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Infrastructures essentielles et charge urbaine critique.',
     level: 0,
     levels: [
-      { name: 'Éclairage public', demandWhPerMinute: 400, revenuePerMinute: 28, cost: 8000 },
+      { name: 'Éclairage public', demandWhPerMinute: 400, revenuePerMinute: 28, cost: 5200 },
       { name: 'Hôpital', demandWhPerMinute: 80000, revenuePerMinute: 5600, cost: 1000000 },
       { name: 'Réseau urbain critique', demandWhPerMinute: 2000000, revenuePerMinute: 160000, cost: 50000000 },
     ],
-    baseCost: 8000,
-    costMultiplier: 1.32,
+    baseCost: 5200,
+    costMultiplier: 1.28,
     icon: Hospital,
     color: '#38bdf8',
   },
@@ -1008,12 +1026,12 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Mobilité électrique et réseau de charge public.',
     level: 0,
     levels: [
-      { name: 'Bornes de recharge', demandWhPerMinute: 800, revenuePerMinute: 56, cost: 14500 },
+      { name: 'Bornes de recharge', demandWhPerMinute: 800, revenuePerMinute: 56, cost: 9500 },
       { name: 'Tramway', demandWhPerMinute: 120000, revenuePerMinute: 9600, cost: 1700000 },
       { name: 'Métro électrique', demandWhPerMinute: 3500000, revenuePerMinute: 315000, cost: 90000000 },
     ],
-    baseCost: 14500,
-    costMultiplier: 1.33,
+    baseCost: 9500,
+    costMultiplier: 1.29,
     icon: TrainFront,
     color: '#22d3ee',
   },
@@ -1264,7 +1282,7 @@ const buildEnergyObjectiveCandidates = ({
       key: 'connect-first-consumer',
       title: 'Monétiser la ville',
       focus: 'Ajoute un premier consommateur pour transformer l’énergie distribuée en revenus réguliers.',
-      action: 'Onglet Consommation : débloque un premier consommateur alimenté par le Cœur du réseau.',
+      action: 'Onglet Consommation : débloque Maisons pour lancer les premiers revenus réguliers.',
       progressCurrent: consumptionOptimizationCount,
       progressTarget: 1,
       progressUnit: 'niveau',
@@ -1286,7 +1304,7 @@ const buildEnergyObjectiveCandidates = ({
       key: 'first-market-order',
       title: 'Vendre une réserve',
       focus: 'Utilise la bourse pour convertir une partie du stock en trésorerie visible.',
-      action: 'Clique sur Vendre le stock dans la carte Stockage dès que la réserve contient de l’énergie.',
+      action: 'Clique sur Vendre le surplus dans la carte Stockage dès que la réserve contient de l’énergie.',
       progressCurrent: manualSellCount,
       progressTarget: 1,
       progressUnit: 'vente',
@@ -1382,17 +1400,6 @@ const buildEnergyObjectiveCandidates = ({
       isComplete: isChartUnlocked,
     },
     {
-      key: 'storage-tier-2',
-      title: 'Passer à la banque de batteries',
-      focus: 'Le niveau 2 change d’échelle : 1 MWh de capacité pour absorber les vrais excédents.',
-      action: `Onglet Nœud : atteins ${getStorageTierLabel(2)} (${formatEnergy(getStorageCapacity(2))} max).`,
-      progressCurrent: storageUpgradeLevel,
-      progressTarget: 2,
-      progressUnit: 'niveau',
-      rewardLabel: '1 MWh stockable',
-      isComplete: storageUpgradeLevel >= 2,
-    },
-    {
       key: 'generator-expansion',
       title: 'Renforcer le parc producteur',
       focus: 'Atteins 6 niveaux cumulés sur les producteurs pour solidifier le débit avant les sources lourdes.',
@@ -1413,6 +1420,17 @@ const buildEnergyObjectiveCandidates = ({
       progressUnit: 'amélioration',
       rewardLabel: 'Infrastructure optimisée',
       isComplete: improvedResearchCount >= 3,
+    },
+    {
+      key: 'storage-tier-2',
+      title: 'Passer à la banque de batteries',
+      focus: 'Le niveau 2 change d’échelle : 1 MWh de capacité pour absorber les vrais excédents.',
+      action: `Onglet Nœud : atteins ${getStorageTierLabel(2)} (${formatEnergy(getStorageCapacity(2))} max).`,
+      progressCurrent: storageUpgradeLevel,
+      progressTarget: 2,
+      progressUnit: 'niveau',
+      rewardLabel: '1 MWh stockable',
+      isComplete: storageUpgradeLevel >= 2,
     },
     {
       key: 'reach-100kw',
@@ -1437,17 +1455,6 @@ const buildEnergyObjectiveCandidates = ({
       isComplete: advancedGeneratorCount >= 1,
     },
     {
-      key: 'city-revenue-network',
-      title: 'Absorber la puissance industrielle',
-      focus: 'Augmente la demande pour que la production industrielle serve réellement la ville au lieu de partir uniquement en surplus.',
-      action: `Consommation actuelle : ${formatEnergyRate(totalPowerConsumption)}. Vise ${formatEnergyRate(1000000)} pour créer une demande métropolitaine.`,
-      progressCurrent: totalPowerConsumption,
-      progressTarget: 1000000,
-      progressUnit: 'Wh/min',
-      rewardLabel: 'Demande métropolitaine',
-      isComplete: totalPowerConsumption >= 1000000,
-    },
-    {
       key: 'multi-sources',
       title: 'Construire un mix complet',
       focus: 'Active 4 sources différentes pour répartir le débit et multiplier les flux visibles.',
@@ -1457,6 +1464,17 @@ const buildEnergyObjectiveCandidates = ({
       progressUnit: 'source',
       rewardLabel: 'Mix complet',
       isComplete: upgradedGeneratorCount >= 4,
+    },
+    {
+      key: 'city-revenue-network',
+      title: 'Absorber la puissance industrielle',
+      focus: 'Augmente la demande pour que la production industrielle serve réellement la ville au lieu de partir uniquement en surplus.',
+      action: `Consommation actuelle : ${formatEnergyRate(totalPowerConsumption)}. Vise ${formatEnergyRate(1000000)} pour créer une demande métropolitaine.`,
+      progressCurrent: totalPowerConsumption,
+      progressTarget: 1000000,
+      progressUnit: 'Wh/min',
+      rewardLabel: 'Demande métropolitaine',
+      isComplete: totalPowerConsumption >= 1000000,
     },
     {
       key: 'reach-1mw',
@@ -1578,10 +1596,10 @@ export function EnergyControlTower() {
   const launchingStartModeRef = useRef<StartMode | null>(null)
   const startModeTransitionTimeoutRef = useRef<number | null>(null)
   const manualGridFlowTimeoutRef = useRef<number | null>(null)
-  const manualStorageFlowTimeoutRef = useRef<number | null>(null)
-  const [clickPulseToken, setClickPulseToken] = useState(0)
+  const [purchaseEffect, setPurchaseEffect] = useState<PurchaseEffect | null>(null)
   const pendingHubEnergyRef = useRef(0)
-  const hubClickFlushFrameRef = useRef<number | null>(null)
+  const hubClickFlushTimeoutRef = useRef<number | null>(null)
+  const purchaseEffectTimeoutRef = useRef<number | null>(null)
   const [showCompletionPopup, setShowCompletionPopup] = useState(false)
   const objectiveCompletionRef = useRef(false)
   const shownMilestoneFactIdsRef = useRef<Set<string>>(new Set())
@@ -1608,8 +1626,6 @@ export function EnergyControlTower() {
   const [manualGridFlowDirection, setManualGridFlowDirection] = useState<ManualGridFlowDirection>('gridToHub')
   const [manualGridFlowRevenue, setManualGridFlowRevenue] = useState<number>(0)
   const [autoMarketFlow, setAutoMarketFlow] = useState<number>(0)
-  const [manualStorageFlow, setManualStorageFlow] = useState<number>(0)
-  const [manualStorageFlowLabel, setManualStorageFlowLabel] = useState<number>(0)
 
   // Game UI Tab
   const [activeTab, setActiveTab] = useState<ShopTab>('generators')
@@ -1617,6 +1633,7 @@ export function EnergyControlTower() {
   const [showSolarLaunchPulse, setShowSolarLaunchPulse] = useState(false)
   const launchPulseTimeoutRef = useRef<number | null>(null)
   const upgradePanelRef = useRef<HTMLDivElement | null>(null)
+
 
   // Upgrade Levels
   const [generators, setGenerators] = useState<GeneratorState[]>(() => initialGenerators)
@@ -1686,10 +1703,27 @@ export function EnergyControlTower() {
     const frameSamples: number[] = []
     let frameHandle: number
     let lastFrame = performance.now()
+    let lastScrollTime = 0
+
+    const handleGlobalScroll = () => {
+      lastScrollTime = performance.now()
+    }
+    window.addEventListener('scroll', handleGlobalScroll, { capture: true, passive: true })
 
     const sampleFrame = (timestamp: number) => {
+      const now = performance.now()
       const delta = timestamp - lastFrame
       lastFrame = timestamp
+
+      // Ignore frame timing and reset samples if a scroll occurred within the last 1.5 seconds.
+      // This prevents scroll-induced layout/paint jank from triggering quality degradation.
+      if (now - lastScrollTime < 1500) {
+        if (frameSamples.length > 0) {
+          frameSamples.length = 0
+        }
+        frameHandle = requestAnimationFrame(sampleFrame)
+        return
+      }
 
       if (delta > 0 && delta < 1500) {
         frameSamples.push(delta)
@@ -1724,6 +1758,7 @@ export function EnergyControlTower() {
 
     return () => {
       if (frameHandle) cancelAnimationFrame(frameHandle)
+      window.removeEventListener('scroll', handleGlobalScroll, { capture: true })
     }
   }, [appMode, isPerformanceMode])
 
@@ -1790,13 +1825,9 @@ export function EnergyControlTower() {
       clearTimeout(manualGridFlowTimeoutRef.current)
       manualGridFlowTimeoutRef.current = null
     }
-    if (manualStorageFlowTimeoutRef.current) {
-      clearTimeout(manualStorageFlowTimeoutRef.current)
-      manualStorageFlowTimeoutRef.current = null
-    }
-    if (hubClickFlushFrameRef.current) {
-      cancelAnimationFrame(hubClickFlushFrameRef.current)
-      hubClickFlushFrameRef.current = null
+    if (hubClickFlushTimeoutRef.current) {
+      clearTimeout(hubClickFlushTimeoutRef.current)
+      hubClickFlushTimeoutRef.current = null
     }
     pendingHubEnergyRef.current = 0
 
@@ -1827,10 +1858,7 @@ export function EnergyControlTower() {
     setManualGridFlowDirection('gridToHub')
     setManualGridFlowRevenue(0)
     setAutoMarketFlow(0)
-    setManualStorageFlow(0)
-    setManualStorageFlowLabel(0)
     setActiveTab('generators')
-    setClickPulseToken(0)
     setShowCompletionPopup(false)
     setGenerators(initialGenerators.map((generator) => ({ ...generator })))
     setTechUpgrades(initialTechUpgrades.map((upgrade) => ({ ...upgrade })))
@@ -2163,7 +2191,6 @@ export function EnergyControlTower() {
       getFlowParticleDemand(Math.abs(manualGridFlow)),
       getFlowParticleDemand(Math.abs(autoMarketFlow)),
       getFlowParticleDemand(Math.abs(storageFlowRate)),
-      getFlowParticleDemand(Math.abs(manualStorageFlow)),
       ...mapConsumerIds.map((id) => getFlowParticleDemand(Math.abs(mapConsumerHubFlows[id] ?? 0))),
       ...mapConsumerIds.map((id) => getFlowParticleDemand(Math.abs(mapConsumerMarketFlows[id] ?? 0))),
     ]
@@ -2181,8 +2208,7 @@ export function EnergyControlTower() {
     const manualGridFlowOffset = offset
     const autoMarketFlowOffset = manualGridFlowOffset + 1
     const storageOffset = autoMarketFlowOffset + 1
-    const manualStorageOffset = storageOffset + 1
-    const consumerCentralOffset = manualStorageOffset + 1
+    const consumerCentralOffset = storageOffset + 1
     const consumerMarketOffset = consumerCentralOffset + mapConsumerIds.length
 
     const consumerCentralCaps = mapConsumerIds.reduce(
@@ -2205,7 +2231,6 @@ export function EnergyControlTower() {
       grid: distributed[manualGridFlowOffset] ?? 0,
       autoMarket: distributed[autoMarketFlowOffset] ?? 0,
       storage: distributed[storageOffset] ?? 0,
-      manualStorage: distributed[manualStorageOffset] ?? 0,
       ...consumerCentralCaps,
       ...consumerMarketCaps,
     }
@@ -2213,7 +2238,6 @@ export function EnergyControlTower() {
     mapGeneratorFlows,
     manualGridFlow,
     autoMarketFlow,
-    manualStorageFlow,
     mapConsumerHubFlows,
     mapConsumerMarketFlows,
     effectiveFlowPerfLevel,
@@ -2257,18 +2281,6 @@ export function EnergyControlTower() {
         maxParticles: flowParticleCaps.autoMarket ?? 0,
         visible: autoMarketFlow > 0,
         speedMultiplier: 1.6,
-      },
-      {
-        id: 'storage-click-flow',
-        path: pixiFlowPaths.hubToStorage,
-        color: 0x38bdf8,
-        value: manualStorageFlow,
-        arrivalLabel: `+${formatEnergy(manualStorageFlowLabel || manualStorageFlow)}`,
-        width: getFlowPathWidth(manualStorageFlow, 7),
-        maxParticles: flowParticleCaps.manualStorage,
-        visible: manualStorageFlow > 0,
-        loop: false,
-        speedMultiplier: 1.9,
       },
       {
         id: 'storage-flow',
@@ -2329,8 +2341,6 @@ export function EnergyControlTower() {
       manualGridFlowRevenue,
       autoMarketFlow,
       marketSellRate,
-      manualStorageFlow,
-      manualStorageFlowLabel,
       mapConsumerHubFlows,
       mapConsumerMarketFlows,
       mapConsumptionFlows,
@@ -2537,7 +2547,7 @@ export function EnergyControlTower() {
   }, [muted])
 
   useEffect(() => {
-    upgradePanelRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    upgradePanelRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [activeTab])
 
   useEffect(() => {
@@ -2546,13 +2556,13 @@ export function EnergyControlTower() {
         clearTimeout(manualGridFlowTimeoutRef.current)
       }
       manualGridFlowTimeoutRef.current = null
-      if (manualStorageFlowTimeoutRef.current) {
-        clearTimeout(manualStorageFlowTimeoutRef.current)
+      if (purchaseEffectTimeoutRef.current) {
+        clearTimeout(purchaseEffectTimeoutRef.current)
       }
-      manualStorageFlowTimeoutRef.current = null
-      if (hubClickFlushFrameRef.current) {
-        cancelAnimationFrame(hubClickFlushFrameRef.current)
-        hubClickFlushFrameRef.current = null
+      purchaseEffectTimeoutRef.current = null
+      if (hubClickFlushTimeoutRef.current) {
+        clearTimeout(hubClickFlushTimeoutRef.current)
+        hubClickFlushTimeoutRef.current = null
       }
       setManualGridFlowDirection('gridToHub')
     }
@@ -2696,30 +2706,11 @@ export function EnergyControlTower() {
     return () => clearInterval(gameTick)
   }, [appMode]) // Stable dependency — refs handle volatile values
 
-  const triggerHubClickFlow = useCallback((addedEnergy: number) => {
-    if (addedEnergy <= 0) return
-
-    setManualStorageFlow((prev) => prev + addedEnergy)
-    setManualStorageFlowLabel(addedEnergy)
-
-    if (manualStorageFlowTimeoutRef.current) {
-      clearTimeout(manualStorageFlowTimeoutRef.current)
-    }
-
-    manualStorageFlowTimeoutRef.current = window.setTimeout(() => {
-      setManualStorageFlow(0)
-      setManualStorageFlowLabel(0)
-    }, MANUAL_GRID_FLOW_VISUAL_DURATION_MS)
-  }, [])
-
   const applyHubClickToStorage = useCallback(
     (addedEnergy: number) => {
       const apply = (setStorage: Dispatch<SetStateAction<number>>) => {
         setStorage((prev) => {
-          const next = clampToStorage(prev + addedEnergy, storageCapacity)
-          const added = next - prev
-          triggerHubClickFlow(added)
-          return next
+          return clampToStorage(prev + addedEnergy, storageCapacity)
         })
       }
 
@@ -2729,13 +2720,13 @@ export function EnergyControlTower() {
         apply(setWatts)
       }
     },
-    [isDemoMode, storageCapacity, triggerHubClickFlow],
+    [isDemoMode, storageCapacity],
   )
 
   const flushPendingHubClicks = useCallback(() => {
     const queuedEnergy = pendingHubEnergyRef.current
     pendingHubEnergyRef.current = 0
-    hubClickFlushFrameRef.current = null
+    hubClickFlushTimeoutRef.current = null
 
     if (queuedEnergy <= 0) return
     applyHubClickToStorage(queuedEnergy)
@@ -2749,14 +2740,25 @@ export function EnergyControlTower() {
     clickCountRef.current += 1
     SoundEffects.click(clickCountRef.current)
     pendingHubEnergyRef.current += clickPowerVal
-    setClickPulseToken((prev) => prev + 1)
 
-    if (hubClickFlushFrameRef.current !== null) return
-    hubClickFlushFrameRef.current = window.requestAnimationFrame(() => {
+    if (hubClickFlushTimeoutRef.current !== null) return
+    hubClickFlushTimeoutRef.current = window.setTimeout(() => {
       flushPendingHubClicks()
-    })
+    }, 200)
 
   }, [clickPowerVal, flushPendingHubClicks])
+
+  const triggerPurchaseEffect = useCallback((key: string) => {
+    if (purchaseEffectTimeoutRef.current) {
+      clearTimeout(purchaseEffectTimeoutRef.current)
+    }
+
+    setPurchaseEffect({ key, token: Date.now() })
+    purchaseEffectTimeoutRef.current = window.setTimeout(() => {
+      setPurchaseEffect(null)
+      purchaseEffectTimeoutRef.current = null
+    }, 1500)
+  }, [])
 
   // Buy Generator Upgrade
   const buyGenerator = useCallback((genId: string) => {
@@ -2782,6 +2784,7 @@ export function EnergyControlTower() {
       setGenerators(prev =>
         prev.map((g, idx) => (idx === genIndex ? { ...g, level: g.level + 1 } : g))
       )
+      triggerPurchaseEffect(`generator:${genId}`)
       if (genId === 'solar' && showSolarLaunchPulse) {
         if (launchPulseTimeoutRef.current) {
           window.clearTimeout(launchPulseTimeoutRef.current)
@@ -2793,7 +2796,7 @@ export function EnergyControlTower() {
     } else {
       SoundEffects.error()
     }
-  }, [addLog, generatorIndexById, generatorsById, isInteractiveMode, money, showSolarLaunchPulse])
+  }, [addLog, generatorIndexById, generatorsById, isInteractiveMode, money, showSolarLaunchPulse, triggerPurchaseEffect])
 
   // Buy Tech Upgrade
   const buyTechUpgrade = useCallback((techId: string) => {
@@ -2818,11 +2821,12 @@ export function EnergyControlTower() {
       setTechUpgrades(prev =>
         prev.map((u, idx) => (idx === techIndex ? { ...u, level: u.level + 1 } : u))
       )
+      triggerPurchaseEffect(`tech:${techId}`)
       addLog(`${centralNodeUpgradeIds.has(techId) ? '🔷 Nœud central' : '💡 Recherches'} : Acheté ${upgrade.name} Niveau ${upgrade.level + 1}`)
     } else {
       SoundEffects.error()
     }
-  }, [addLog, isInteractiveMode, money, techUpgradeIndexById, techUpgradesById])
+  }, [addLog, isInteractiveMode, money, techUpgradeIndexById, techUpgradesById, triggerPurchaseEffect])
 
   const buyConsumptionUpgrade = useCallback((upgradeId: ConsumptionUpgradeState['id']) => {
     if (!isInteractiveMode) return
@@ -2846,11 +2850,12 @@ export function EnergyControlTower() {
       setConsumptionUpgrades((prev) =>
         prev.map((item, index) => (index === upgradeIndex ? { ...item, level: item.level + 1 } : item)),
       )
+      triggerPurchaseEffect(`consumer:${upgradeId}`)
       addLog(`🏙️ Consommation : ${upgrade.name} évolue vers ${nextLevel.name} Level ${upgrade.level + 1}`)
     } else {
       SoundEffects.error()
     }
-  }, [addLog, consumptionUpgradeIndexById, consumptionUpgradesById, isInteractiveMode, money])
+  }, [addLog, consumptionUpgradeIndexById, consumptionUpgradesById, isInteractiveMode, money, triggerPurchaseEffect])
 
   const sellEnergy = useCallback(() => {
     if (!isInteractiveMode) return
@@ -2892,11 +2897,26 @@ export function EnergyControlTower() {
   const isStorageCapReached = storageCapacity > 0 ? displayWatts >= storageCapacity : false
   const exportNodeColor = displayWatts > MINIMUM_MARKET_SELL_AMOUNT || isStorageCapReached || isManualExportActive ? '#facc15' : '#60a5fa'
   const networkBalance = totalPassivePowerRate - totalPowerConsumption
+  const hubEnergyStateClassName = networkBalance > 0
+    ? 'energy-hub-surplus'
+    : networkBalance < 0
+      ? 'energy-hub-deficit'
+      : 'energy-hub-balanced'
+  const purchaseEffectKey = purchaseEffect?.key
+  const isHubPurchasePulsing = purchaseEffectKey?.startsWith('tech:')
+    ? centralNodeUpgradeIds.has(purchaseEffectKey.slice(5))
+    : false
+  const isStoragePurchasePulsing = purchaseEffectKey?.startsWith('tech:')
+    ? purchaseEffectKey.toLowerCase().includes('storage')
+    : false
   const networkBalanceLabel = `Solde : ${formatSignedEnergyRate(networkBalance)}`
   const consumerRevenuePerMinute = totalConsumerRevenue * (totalPowerConsumption > 0 ? Math.min(1, (totalPassivePowerRate + displayWatts) / totalPowerConsumption) : 0)
   const netSalesEnergyPerMinute = totalPassivePowerRate - totalPowerConsumption
   const passiveSalesEnergyPerMinute = Math.max(0, netSalesEnergyPerMinute)
   const passiveSalesRevenuePerMinute = passiveSalesEnergyPerMinute * marketSellRate
+  const energyFlowScale = Math.max(totalPassivePowerRate, totalPowerConsumption, 1)
+  const productionBarPercent = Math.min(100, Math.round((totalPassivePowerRate / energyFlowScale) * 100))
+  const consumptionBarPercent = Math.min(100, Math.round((totalPowerConsumption / energyFlowScale) * 100))
   const marketAutoSaleEnabled = isMarketUnlocked && isPlayingMode
   const marketLabel = marketAutoSaleEnabled
     ? `Tarif ${formatMoney(marketSellRate)}/Wh`
@@ -2904,6 +2924,57 @@ export function EnergyControlTower() {
   const marketAutoSaleInfo = marketAutoSaleEnabled
     ? `Vente auto : ${formatEnergy(passiveSalesEnergyPerMinute)}/min • ${formatMoney(passiveSalesRevenuePerMinute)}/min`
     : 'Mode démo / verrouillé'
+  const renderedProducerNodes = useMemo(() => {
+    return mapProducerIds.map((producerId) => {
+      const generator = mapGeneratorStats[producerId]
+      if (!generator) return null
+      const shouldPulseStarter = showSolarLaunchPulse && producerId === 'solar'
+      const producerLevel = getEffectiveGeneratorLevel(generator)
+      const isProducerPurchasePulsing = purchaseEffectKey === `generator:${producerId}`
+
+      return (
+        <EnergyNode
+          key={producerId}
+          icon={generator.icon}
+          label={mapProducerFamilyLabels[producerId]}
+          levelBadge={formatNodeLevelBadge(producerLevel)}
+          value={<GeneratorNodeValue generator={generator} multiplier={multiplier} />}
+          color={generator.color}
+          className={`${mapNodePositions[producerId]} energy-node-producer ${shouldPulseStarter ? 'energy-node-starter-pulse' : ''} ${isProducerPurchasePulsing ? 'energy-node-purchase-burst' : ''}`}
+          isEmphasized={generator.level > 0 || shouldPulseStarter}
+        />
+      )
+    })
+  }, [mapGeneratorStats, showSolarLaunchPulse, purchaseEffectKey, multiplier])
+
+  const renderedConsumerNodes = useMemo(() => {
+    return mapConsumerIds.map((consumerId) => {
+      const consumer = consumptionUpgradesById.get(consumerId)
+      if (!consumer) return null
+      const ConsumerIcon = consumer.icon
+      const isConsumerPurchasePulsing = purchaseEffectKey === `consumer:${consumerId}`
+
+      return (
+        <EnergyNode
+          key={consumerId}
+          icon={<ConsumerIcon className="h-4 w-4" />}
+          label={consumer.name}
+          levelBadge={formatNodeLevelBadge(consumer.level)}
+          value={
+            <ConsumptionNodeValue
+              consumption={mapConsumerFlows[consumerId] ?? 0}
+              consumer={consumer}
+              currentRevenue={getConsumerRevenuePerMinute(consumer)}
+            />
+          }
+          color={consumer.color}
+          className={`${mapNodePositions[consumerId]} energy-node-consumer ${isConsumerPurchasePulsing ? 'energy-node-purchase-burst' : ''}`}
+          isEmphasized={consumer.level > 0}
+        />
+      )
+    })
+  }, [consumptionUpgradesById, purchaseEffectKey, mapConsumerFlows])
+
   const introWordmark = (sizeClass = 'text-[clamp(2.2rem,8vw,4.8rem)]') => (
     <div className="relative inline-flex flex-col">
       <span className="relative inline-block">
@@ -3444,7 +3515,7 @@ export function EnergyControlTower() {
         {appMode !== 'menu' && (
           <>
             {/* TOP MULTI-METRIC HUD - Stretching across the whole top line */}
-            <section className="top-hud-grid grid shrink-0 grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-3">
+            <section className="top-hud-grid grid shrink-0 grid-cols-2 gap-2 md:grid-cols-5 lg:grid-cols-6 lg:gap-3">
               {/* Current Objective - Cyan Tone */}
               <motion.div
                 className="hud-card hud-card-cyan hud-card-objective control-panel col-span-2 md:col-span-2 lg:col-span-2"
@@ -3495,40 +3566,88 @@ export function EnergyControlTower() {
                 </div>
               </motion.div>
               
-              {/* Total Generated Energy - Yellow Tone */}
-              <HudStatCard
-                label="Production"
-                value={formatSignedEnergyRate(totalPassivePowerRate)}
-                valueTitle={`Production : ${formatSignedEnergyRate(totalPassivePowerRate)}`}
-                detail="Flux entrant"
-                icon={<Zap className="h-4 w-4" />}
-                tone="yellow"
-              />
+              <motion.div
+                className="hud-card hud-card-yellow hud-card-flow-summary control-panel col-span-2 md:col-span-2 lg:col-span-3"
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="hud-card-accent" />
+                <div className="hud-network-treasury-layout">
+                  <div className="hud-network-panel">
+                    <div className="hud-panel-title-row">
+                      <p className="hud-card-label">Réseau</p>
+                      <div className="hud-card-icon">
+                        <span aria-hidden="true">⚡</span>
+                      </div>
+                    </div>
 
-              {/* Energy Grid Status - Blue/Cyan Tone */}
-              <HudStatCard
-                label="Consommation"
-                value={formatSignedEnergyRate(-totalPowerConsumption)}
-                valueTitle={`Consommation : ${formatSignedEnergyRate(-totalPowerConsumption)}`}
-                detail={networkBalanceLabel}
-                detailClassName={networkBalance >= 0 ? 'hud-card-detail-positive' : 'hud-card-detail-negative'}
-                icon={<BatteryCharging className="h-4 w-4" />}
-                tone={networkBalance >= 0 ? 'cyan' : 'orange'}
-              />
+                    <div className="hud-network-balance" title={networkBalanceLabel}>
+                      <strong>⚡ {formatSignedEnergyRate(totalPassivePowerRate - totalPowerConsumption)} disponibles</strong>
+                      <span>{totalPassivePowerRate >= totalPowerConsumption ? 'Surplus énergétique' : 'Déficit énergétique'}</span>
+                    </div>
 
-              {/* Cash Balance - Green Tone */}
-              <HudStatCard
-                label="Trésorerie"
-                className="hud-card-treasury"
-                value={<span className="text-2xl font-black leading-none">{formatMoney(displayMoney)}</span>}
-                valueTitle={`Trésorerie : ${formatMoney(displayMoney)}`}
-                detail={`Conso : +${formatMoney(consumerRevenuePerMinute)}/min`}
-                detailTitle="Revenus par minute depuis les consommateurs."
-                subdetail={`Bourse : +${formatMoney(passiveSalesRevenuePerMinute)}/min`}
-                subdetailTitle="Revenus automatiques via la vente de surplus à la bourse."
-                icon={<Coins className="h-4 w-4" />}
-                tone="yellow"
-              />
+                    <div className="hud-flow-bars">
+                      <div className="hud-flow-row hud-flow-row-production">
+                        <div className="hud-flow-row-copy">
+                          <span>Production</span>
+                          <strong title={`Production : ${formatSignedEnergyRate(totalPassivePowerRate)}`}>
+                            {formatSignedEnergyRate(totalPassivePowerRate)}
+                          </strong>
+                        </div>
+                        <div className="hud-flow-track" aria-hidden="true">
+                          <span style={{ width: `${productionBarPercent}%` }} />
+                        </div>
+                      </div>
+
+                      <div className="hud-flow-row hud-flow-row-consumption">
+                        <div className="hud-flow-row-copy">
+                          <span>Consommation</span>
+                          <strong title={`Consommation : ${formatSignedEnergyRate(-totalPowerConsumption)}`}>
+                            {formatSignedEnergyRate(-totalPowerConsumption)}
+                          </strong>
+                        </div>
+                        <div className="hud-flow-track" aria-hidden="true">
+                          <span style={{ width: `${consumptionBarPercent}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hud-treasury-panel">
+                    <div className="hud-panel-title-row">
+                      <p className="hud-card-label">Trésorerie</p>
+                      <div className="hud-card-icon">
+                        <Coins className="h-4 w-4" />
+                      </div>
+                    </div>
+
+                    <div className="hud-treasury-main">
+                      <span>Fonds disponibles</span>
+                      <strong title={`Trésorerie : ${formatMoney(displayMoney)}`}>
+                        💶 {formatMoney(displayMoney)}
+                      </strong>
+                    </div>
+
+                    <div className="hud-treasury-net">
+                      <span>Revenu net</span>
+                      <strong>
+                        +{formatMoney(consumerRevenuePerMinute + passiveSalesRevenuePerMinute)}/min
+                      </strong>
+                    </div>
+
+                    <div className="hud-flow-revenue-badges">
+                      <em title="Revenus par minute depuis les consommateurs.">
+                        <span>Consommateur</span>
+                        <strong>+{formatMoney(consumerRevenuePerMinute)}/min</strong>
+                      </em>
+                      <em title="Revenus automatiques via la vente de surplus à la bourse.">
+                        <span>Bourse</span>
+                        <strong>+{formatMoney(passiveSalesRevenuePerMinute)}/min</strong>
+                      </em>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
 
               <SignalEnergyGaugeCard
                 productionWhPerMinute={signalProduction}
@@ -3541,7 +3660,7 @@ export function EnergyControlTower() {
             <section className={mapGridClassName}>
               
               {/* LEFT COLUMN: MAP + CHARTS */}
-              <div className="flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pr-1.5 scrollbar-thin">
+              <div className="flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pr-1.5 scrollbar-thin left-column-container">
                 {/* LEFT SIDE: CLICKABLE CITY MAP */}
                 <div
                   className={mapPanelClassName}
@@ -3567,32 +3686,27 @@ export function EnergyControlTower() {
 
                 <div className="energy-map-bg absolute inset-0" />
                 <div className="energy-grid absolute inset-0" />
+                <div className="energy-city-layer absolute inset-0" aria-hidden="true">
+                  <span className="energy-city-sector energy-city-sector-producers" />
+                  <span className="energy-city-sector energy-city-sector-consumers" />
+<span className="energy-city-sector energy-city-sector-storage" />
+                  <span className="energy-city-sector energy-city-sector-market" />
+                  <span className="energy-city-skyline energy-city-skyline-left" />
+                  <span className="energy-city-skyline energy-city-skyline-right" />
+                  <span className="energy-city-ring energy-city-ring-a" />
+                  <span className="energy-city-ring energy-city-ring-b" />
+                  <span className="energy-city-crossline energy-city-crossline-a" />
+                  <span className="energy-city-crossline energy-city-crossline-b" />
+                </div>
 
                 <PixiEnergyNetwork
                   flows={pixiNetworkFlows}
                   performanceLevel={effectiveFlowPerfLevel}
-                  clickPulseToken={clickPulseToken}
                   clickPowerLabel={formatEnergy(clickPowerVal)}
                 />
 
                 {/* Nodes positions */}
-                {mapProducerIds.map((producerId) => {
-                  const generator = mapGeneratorStats[producerId]
-                  if (!generator) return null
-                  const shouldPulseStarter = showSolarLaunchPulse && producerId === 'solar'
-
-                  return (
-                    <EnergyNode
-                      key={producerId}
-                      icon={generator.icon}
-                      label={`${generator.name} - Level ${getEffectiveGeneratorLevel(generator)}`}
-                      value={<GeneratorNodeValue generator={generator} multiplier={multiplier} />}
-                      color={generator.color}
-                      className={`${mapNodePositions[producerId]} energy-node-producer ${shouldPulseStarter ? 'energy-node-starter-pulse' : ''}`}
-                      isEmphasized={generator.level > 0 || shouldPulseStarter}
-                    />
-                  )
-                })}
+                {renderedProducerNodes}
                 <EnergyNode
                   icon={<BatteryCharging className="h-4 w-4" />}
                   label="Stockage"
@@ -3611,10 +3725,10 @@ export function EnergyControlTower() {
                     </>
                   }
                   color="#38bdf8"
-                  className={`${mapNodePositions.storage} energy-node-producer energy-node-storage`}
+                  className={`${mapNodePositions.storage} energy-node-producer energy-node-storage ${isStoragePurchasePulsing ? 'energy-node-purchase-burst' : ''}`}
                   isEmphasized={storageUpgradeLevel > 0}
                   onClick={sellEnergy}
-                  actionLabel="Vendre le stock"
+                  actionLabel="Vendre le surplus"
                   actionDisabled={!isInteractiveMode || displayWatts <= MINIMUM_MARKET_SELL_AMOUNT}
                   disabledReason={
                     displayWatts <= MINIMUM_MARKET_SELL_AMOUNT
@@ -3636,37 +3750,14 @@ export function EnergyControlTower() {
                   color={exportNodeColor}
                   className={`${mapNodePositions.export} energy-node-export`}
                 />
-                
-                {mapConsumerIds.map((consumerId) => {
-                  const consumer = consumptionUpgradesById.get(consumerId)
-                  if (!consumer) return null
-                  const ConsumerIcon = consumer.icon
 
-                  return (
-                    <EnergyNode
-                      key={consumerId}
-                      icon={<ConsumerIcon className="h-4 w-4" />}
-                      label={`${consumer.name} - Level ${consumer.level}`}
-                      value={
-                      <ConsumptionNodeValue
-                          consumption={mapConsumerFlows[consumerId] ?? 0}
-                          consumer={consumer}
-                          currentRevenue={getConsumerRevenuePerMinute(consumer)}
-                        />
-                      }
-                      color={consumer.color}
-                      className={`${mapNodePositions[consumerId]} energy-node-consumer`}
-                      isEmphasized={consumer.level > 0}
-                    />
-                  )
-                })}
-
+                {renderedConsumerNodes}
 
                 {/* Clickable interactive Center Hub */}
                 <motion.button
                   type="button"
                   onClick={handleHubClick}
-                  className={`${mapHubClassName} central-node-button cursor-pointer select-none overflow-visible`}
+                  className={`${mapHubClassName} ${hubEnergyStateClassName} ${isHubPurchasePulsing ? 'energy-hub-purchase-burst' : ''} central-node-button cursor-pointer select-none overflow-visible`}
                   style={mapHubMotionStyle}
                   aria-label={`Nœud central, produire ${formatEnergy(clickPowerVal)} par clic`}
                   animate={{
@@ -3685,6 +3776,9 @@ export function EnergyControlTower() {
                       Mode démo
                     </span>
                   ) : null}
+                  <span className="central-node-field" aria-hidden="true" />
+                  <span className="central-node-energy-ring central-node-energy-ring-a" aria-hidden="true" />
+                  <span className="central-node-energy-ring central-node-energy-ring-b" aria-hidden="true" />
                   <span className="central-node-shell" aria-hidden="true" />
                   <span className="central-node-orbit central-node-orbit-a" aria-hidden="true" />
                   <span className="central-node-orbit central-node-orbit-b" aria-hidden="true" />
@@ -3697,14 +3791,10 @@ export function EnergyControlTower() {
                     <span className="mt-0.5 text-[13px] font-black uppercase leading-none tracking-wide text-white">
                       NŒUD CENTRAL
                     </span>
-                    <span className="mt-1 flex w-[86px] flex-col items-center overflow-hidden rounded border border-cyan-300/20 bg-slate-950/42 py-1 text-center shadow-[inset_0_0_12px_rgba(34,211,238,0.08)]">
-                      <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-cyan-300/70">Clic</span>
-                      <span className="block truncate font-mono text-[10px] font-black leading-tight text-cyan-100">
-                        +{formatEnergy(clickPowerVal)}
-                      </span>
-                    </span>
-                    <span className="mt-1 rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-cyan-200">
-                      Cliquer pour produire
+                    <span className="central-node-click-cta mt-1.5">
+                      <span aria-hidden="true">⚡</span>
+                      <span>Produire</span>
+                      <strong>+{formatEnergy(clickPowerVal)}</strong>
                     </span>
                   </span>
                 </motion.button>
@@ -3712,7 +3802,7 @@ export function EnergyControlTower() {
               </div>
 
               {/* RIGHT AREA: INCREMENTAL SHOP PANELS */}
-              <div className="flex flex-col gap-3 min-h-0">
+              <div className="flex flex-col gap-1.5 min-h-0">
                 <div className="control-panel shop-tab-bar rounded-lg border border-white/10 p-2.5 shrink-0">
                   {shopTabs.map((tab) => {
                     const TabIcon = tab.icon
@@ -3723,7 +3813,7 @@ export function EnergyControlTower() {
                         SoundEffects.click()
                         setActiveTab(tab.id)
                       }}
-                      className={`shop-tab ${activeTab === tab.id ? 'shop-tab-active' : ''}`}
+                      className={`shop-tab shop-tab-${tab.id} ${activeTab === tab.id ? 'shop-tab-active' : ''}`}
                     >
                       <TabIcon aria-hidden="true" />
                       <span>{tab.label}</span>
@@ -3733,7 +3823,10 @@ export function EnergyControlTower() {
                 </div>
 
                 {/* ACTIVE TAB CONTENT */}
-                <div ref={upgradePanelRef} className="control-panel upgrade-panel flex-1 rounded-lg border border-white/10 p-3 overflow-y-auto">
+                <div
+                  ref={upgradePanelRef}
+                  className="control-panel upgrade-panel flex-1 rounded-lg border border-white/10 p-3 overflow-y-auto"
+                >
                   {activeTab === 'generators' && (
                     <div className="space-y-2.5">
                       <ShopSectionHeader
@@ -3749,87 +3842,85 @@ export function EnergyControlTower() {
                         const currentProduction = getGeneratorProduction(gen, multiplier)
                         const nextProductionGain = getGeneratorNextProductionGain(gen, multiplier)
                         const shouldPulseStarter = isInteractiveMode && showSolarLaunchPulse && gen.id === 'solar'
-
-                        if (levelInfo.isMaxLevel) {
-                          return (
-                            <div
-                              key={gen.id}
-                              className="shop-item shop-item-cyan shop-item-complete shop-item-collapsed text-xs"
-                            >
-                              <div className="shop-complete-row">
-                                <span className="shop-item-icon text-xl leading-none">{gen.icon}</span>
-                                <div className="shop-item-copy">
-                                  <div className="shop-item-title-row">
-                                    <span className="shop-item-title" title={levelInfo.currentName}>
-                                      {levelInfo.currentName}
-                                    </span>
-                                    <span className="shop-level-chip">Niveau max</span>
-                                  </div>
-                                  <p className="shop-complete-summary">
-                                    {gen.name} terminé · {formatEnergyRate(currentProduction)}
-                                  </p>
-                                </div>
-                                <span className="shop-complete-badge">Terminé</span>
-                              </div>
-                            </div>
-                          )
-                        }
+                        const isGeneratorPurchasePulsing = purchaseEffectKey === `generator:${gen.id}`
+                        const isLocked = levelInfo.currentLevel === 0
+                        const levelChipLabel = levelInfo.isMaxLevel ? 'Niveau MAX' : `Niveau ${levelInfo.currentLevel}`
 
                         return (
                           <div
                             key={gen.id}
-                            className={`shop-item shop-item-cyan text-xs ${shouldPulseStarter ? 'shop-item-launch-pulse' : ''}`}
+                            className={`shop-item shop-item-cyan upgrade-detail-card producer-upgrade-card text-xs ${shouldPulseStarter ? 'shop-item-launch-pulse' : ''} ${levelInfo.isMaxLevel ? 'shop-item-complete' : ''} ${isGeneratorPurchasePulsing ? 'shop-item-purchase-burst' : ''}`}
                           >
-                            <div className="shop-item-main">
-                              <span className="shop-item-icon text-xl leading-none">{gen.icon}</span>
-                              <div className="shop-item-copy">
-                                <div className="shop-item-title-row">
-                                  <span className="shop-item-title" title={levelInfo.shopName}>
-                                    {levelInfo.shopName}
+                            <div className="upgrade-detail-header">
+                              <span className="shop-item-icon upgrade-detail-icon text-xl leading-none">{gen.icon}</span>
+                              <div className="upgrade-detail-heading">
+                                <div className="upgrade-detail-title-row">
+                                  <span className="upgrade-detail-title" title={isLocked ? levelInfo.shopName : levelInfo.currentName}>
+                                    {isLocked ? levelInfo.shopName : levelInfo.currentName}
                                   </span>
-                                  <span className="shop-level-chip">
-                                    {levelInfo.nextLevel ? `Niveau ${levelInfo.nextLevel}` : 'Niveau max'}
-                                  </span>
+                                  <span className="shop-level-chip">{levelChipLabel}</span>
                                 </div>
-                                <p className="shop-item-description">
-                                  {levelInfo.shopLabel}
-                                </p>
-                                <div className="shop-metric-grid">
-                                  <span className="shop-metric">
-                                    <span>Production actuelle</span>
-                                    <strong>{formatEnergyRate(currentProduction)}</strong>
-                                  </span>
-                                  <span className="shop-metric shop-metric-positive">
-                                    <span>Prochaine amélioration</span>
-                                    <strong>{levelInfo.isMaxLevel ? 'Max' : formatSignedEnergyRate(nextProductionGain)}</strong>
-                                  </span>
-                                  <span className="shop-metric">
-                                    <span>Niveau actuel</span>
-                                    <strong title={levelInfo.currentName}>
-                                      {levelInfo.currentName}
-                                    </strong>
-                                  </span>
-                                  <span className="shop-metric shop-metric-cost">
-                                    <span>Coût</span>
-                                    <strong>{levelInfo.isMaxLevel ? 'Complet' : formatMoney(cost)}</strong>
-                                  </span>
-                                </div>
+                                <p className="upgrade-detail-description">{gen.name} · Producteur énergétique</p>
                               </div>
                             </div>
-                            <div className="shop-item-actions">
-                              <span className="shop-action-hint">
-                                {levelInfo.isMaxLevel
-                                  ? 'Niveau max atteint'
-                                : !isAffordable
-                                    ? (!isInteractiveMode ? 'Mode démo' : 'Fonds insuffisants')
-                                    : ''}
-                              </span>
+
+                            {isLocked ? (
+                              <div className="upgrade-detail-section upgrade-detail-section-next">
+                                <span className="upgrade-detail-section-title">Déblocage</span>
+                                <span className="upgrade-detail-next-name" title={levelInfo.shopName}>
+                                  {levelInfo.shopName}
+                                </span>
+                                <div className="upgrade-detail-flow-line">
+                                  <span className="upgrade-detail-flow-energy">⚡ +{formatEnergyRate(nextProductionGain)} produits</span>
+                                  <span className="upgrade-detail-arrow">→</span>
+                                  <span className="upgrade-detail-flow-target">Cœur du réseau</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="upgrade-detail-section">
+                                  <span className="upgrade-detail-section-title">Actuel</span>
+                                  <div className="upgrade-detail-flow-line">
+                                    <span className="upgrade-detail-flow-energy">⚡ +{formatEnergyRate(currentProduction)} produits</span>
+                                  </div>
+                                  <span className="upgrade-detail-level-name" title={levelInfo.currentName}>{levelInfo.currentName}</span>
+                                </div>
+
+                                <div className="upgrade-detail-section upgrade-detail-section-next">
+                                  <span className="upgrade-detail-section-title">
+                                    {levelInfo.isMaxLevel ? 'Niveau maximum' : 'Prochaine amélioration'}
+                                  </span>
+                                  {levelInfo.isMaxLevel ? (
+                                    <div className="upgrade-detail-flow-line upgrade-detail-flow-muted">
+                                      <span>Production entièrement améliorée</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span className="upgrade-detail-next-name" title={levelInfo.nextName ?? undefined}>
+                                        {levelInfo.nextName}
+                                      </span>
+                                      <div className="upgrade-detail-flow-line">
+                                        <span className="upgrade-detail-flow-energy">⚡ {formatSignedEnergyRate(nextProductionGain)}</span>
+                                        <span className="upgrade-detail-arrow">→</span>
+                                        <span className="upgrade-detail-flow-target" title={levelInfo.nextName ?? undefined}>{levelInfo.nextName}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            )}
+
+                            <div className="upgrade-detail-footer">
+                              <div className="upgrade-detail-economics">
+                                <span className="upgrade-detail-cost">💰 {levelInfo.isMaxLevel ? 'Complet' : formatMoney(cost)}</span>
+                                <span className="upgrade-detail-payback">⏱ Impact réseau immédiat</span>
+                              </div>
                               <button
                                 disabled={!isAffordable}
                                 onClick={() => buyGenerator(gen.id)}
-                                className="shop-action-button shop-action-cyan"
+                                className="shop-action-button shop-action-cyan upgrade-detail-action"
                               >
-                                {levelInfo.isMaxLevel ? 'Complet' : gen.level === 0 ? 'Débloquer' : 'Améliorer'}
+                                {levelInfo.isMaxLevel ? 'Complet' : isLocked ? 'Débloquer' : 'Améliorer'}
                               </button>
                             </div>
                           </div>
@@ -3852,52 +3943,29 @@ export function EnergyControlTower() {
                         const cost = isComplete ? 0 : getConsumerUpgradeCost(consumer)
                         const isAffordable = isInteractiveMode && !isComplete && displayMoney >= cost
                         const currentConsumption = totalConsumptionFlows.byId[consumer.id] ?? 0
+                        const nextConsumption = nextLevel?.demandWhPerMinute ?? currentConsumption
                         const currentRevenue = getConsumerRevenuePerMinute(consumer)
+                        const nextRevenue = nextLevel
+                          ? nextLevel.revenuePerMinute * CONSUMER_REVENUE_MULTIPLIER
+                          : currentRevenue
+                        const consumptionGain = Math.max(0, nextConsumption - currentConsumption)
+                        const revenueGain = Math.max(0, nextRevenue - currentRevenue)
                         const activeLevelName = getConsumerLevelSummary(consumer)
                         const ConsumerIcon = consumer.icon
-
-                        if (isComplete) {
-                          return (
-                            <div
-                              key={consumer.id}
-                              className="shop-item shop-item-orange shop-item-complete shop-item-collapsed text-xs"
-                            >
-                              <div className="shop-complete-row">
-                                <div
-                                  className="shop-item-icon"
-                                  style={{
-                                    borderColor: `${consumer.color}44`,
-                                    backgroundColor: `${consumer.color}14`,
-                                    color: consumer.color,
-                                  }}
-                                >
-                                  <ConsumerIcon className="h-4 w-4" />
-                                </div>
-                                <div className="shop-item-copy">
-                                  <div className="shop-item-title-row">
-                                    <span className="shop-item-title" title={consumer.name}>
-                                      {consumer.name}
-                                    </span>
-                                    <span className="shop-level-chip">Niveau max</span>
-                                  </div>
-                                <p className="shop-complete-summary">
-                                  {activeLevelName} · {formatSignedEnergyRate(-currentConsumption)} · {formatMoney(currentRevenue)}/min
-                                </p>
-                                </div>
-                              <span className="shop-complete-badge">Terminé</span>
-                            </div>
-                          </div>
-                          )
-                        }
+                        const isConsumerPurchasePulsing = purchaseEffectKey === `consumer:${consumer.id}`
+                        const isLocked = consumer.level === 0
+                        const purchasePaybackLabel = isComplete
+                          ? 'Niveau max atteint'
+                          : getConsumerPaybackLabel(cost, isLocked ? nextRevenue : revenueGain)
 
                         return (
                           <div
                             key={consumer.id}
-                            className="shop-item shop-item-orange text-xs"
+                            className={`shop-item shop-item-orange consumer-upgrade-card text-xs ${isComplete ? 'shop-item-complete' : ''} ${isConsumerPurchasePulsing ? 'shop-item-purchase-burst' : ''}`}
                           >
-                            <div className="shop-item-main">
+                            <div className="consumer-upgrade-header">
                               <div
-                                className="shop-item-icon"
+                                className="shop-item-icon consumer-upgrade-icon"
                                 style={{
                                   borderColor: `${consumer.color}44`,
                                   backgroundColor: `${consumer.color}14`,
@@ -3906,48 +3974,70 @@ export function EnergyControlTower() {
                               >
                                 <ConsumerIcon className="h-4 w-4" />
                               </div>
-                              <div className="shop-item-copy">
-                                <div className="shop-item-title-row">
-                                  <span className="shop-item-title" title={consumer.name}>
+                              <div className="consumer-upgrade-heading">
+                                <div className="consumer-upgrade-title-row">
+                                  <span className="consumer-upgrade-title" title={consumer.name}>
                                     {consumer.name}
                                   </span>
-                                  <span className="shop-level-chip">Niveau {consumer.level}</span>
-                                </div>
-                                <p className="shop-item-description">{consumer.description}</p>
-                                <div className="shop-metric-grid">
-                                  <span className="shop-metric shop-metric-negative">
-                                    <span>Consommation</span>
-                                    <strong>{formatSignedEnergyRate(-currentConsumption)}</strong>
-                                  </span>
-                                  <span className="shop-metric shop-metric-positive">
-                                    <span>Revenu actuel</span>
-                                    <strong>{formatMoney(currentRevenue)}/min</strong>
-                                  </span>
-                                  <span className="shop-metric">
-                                    <span>Niveau actuel</span>
-                                    <strong title={activeLevelName}>{activeLevelName}</strong>
-                                  </span>
-                                  <span className="shop-metric shop-metric-cost">
-                                    <span>Coût</span>
-                                    <strong>{isComplete ? 'Complet' : formatMoney(cost)}</strong>
+                                  <span className="shop-level-chip">
+                                    {isComplete ? 'Niveau MAX' : `Niveau ${consumer.level}`}
                                   </span>
                                 </div>
+                                <p className="consumer-upgrade-description">{consumer.description}</p>
                               </div>
                             </div>
-                            <div className="shop-item-actions">
-                              <span className="shop-action-hint">
-                                {isComplete
-                                  ? 'Niveau max atteint'
-                                  : !isAffordable
-                                    ? (!isInteractiveMode ? 'Mode démo' : 'Fonds insuffisants')
-                                    : ''}
-                              </span>
+
+                            {isLocked ? (
+                              <div className="consumer-upgrade-section consumer-upgrade-section-next">
+                                <span className="consumer-upgrade-section-title">Déblocage</span>
+                                <div className="consumer-upgrade-flow-line">
+                                  <span className="consumer-upgrade-flow-energy">⚡ {formatEnergyRate(nextConsumption)} consommés</span>
+                                  <span className="consumer-upgrade-arrow">→</span>
+                                  <span className="consumer-upgrade-flow-money">💶 {formatMoney(nextRevenue)}/min</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="consumer-upgrade-section">
+                                  <span className="consumer-upgrade-section-title">Actuel</span>
+                                  <div className="consumer-upgrade-flow-line">
+                                    <span className="consumer-upgrade-flow-energy">⚡ {formatEnergyRate(currentConsumption)} consommés</span>
+                                    <span className="consumer-upgrade-arrow">→</span>
+                                    <span className="consumer-upgrade-flow-money">💶 {formatMoney(currentRevenue)}/min</span>
+                                  </div>
+                                  <span className="consumer-upgrade-level-name" title={activeLevelName}>{activeLevelName}</span>
+                                </div>
+
+                                <div className="consumer-upgrade-section consumer-upgrade-section-next">
+                                  <span className="consumer-upgrade-section-title">
+                                    {isComplete ? 'Niveau maximum' : 'Prochaine amélioration'}
+                                  </span>
+                                  {isComplete ? (
+                                    <div className="consumer-upgrade-flow-line consumer-upgrade-flow-muted">
+                                      <span>Capacité consommateur terminée</span>
+                                    </div>
+                                  ) : (
+                                    <div className="consumer-upgrade-flow-line">
+                                      <span className="consumer-upgrade-flow-energy">⚡ {formatSignedEnergyRate(consumptionGain)}</span>
+                                      <span className="consumer-upgrade-arrow">→</span>
+                                      <span className="consumer-upgrade-flow-money">💶 +{formatMoney(revenueGain)}/min</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+
+                            <div className="consumer-upgrade-footer">
+                              <div className="consumer-upgrade-economics">
+                                <span className="consumer-upgrade-cost">💰 {isComplete ? 'Complet' : formatMoney(cost)}</span>
+                                <span className="consumer-upgrade-payback">⏱ {purchasePaybackLabel}</span>
+                              </div>
                               <button
                                 disabled={!isAffordable}
                                 onClick={() => buyConsumptionUpgrade(consumer.id)}
-                                className="shop-action-button shop-action-orange"
+                                className="shop-action-button shop-action-orange consumer-upgrade-action"
                               >
-                                {isComplete ? 'Complet' : 'Améliorer'}
+                                {isComplete ? 'Complet' : isLocked ? 'Débloquer' : 'Améliorer'}
                               </button>
                             </div>
                           </div>
@@ -3982,6 +4072,7 @@ export function EnergyControlTower() {
                             isDisabled={isMaxed}
                             isMaxed={isMaxed}
                             disabledReason={isMaxed ? `Niveau max atteint (${upgrade.level}/${getTechUpgradeMaxLevel(upgrade.id)})` : undefined}
+                            isPurchasePulsing={purchaseEffectKey === `tech:${upgrade.id}`}
                             onBuy={() => buyTechUpgrade(upgrade.id)}
                           />
                         )
@@ -4022,6 +4113,7 @@ export function EnergyControlTower() {
                             isDisabled={isMaxed}
                             isMaxed={isMaxed}
                             disabledReason={isMaxed ? `Niveau max atteint (${upgrade.level}/${getTechUpgradeMaxLevel(upgrade.id)})` : undefined}
+                            isPurchasePulsing={purchaseEffectKey === `tech:${upgrade.id}`}
                             onBuy={() => buyTechUpgrade(upgrade.id)}
                           />
                         )
@@ -4036,7 +4128,7 @@ export function EnergyControlTower() {
                   <span className="text-[10px] font-bold text-slate-400 block border-b border-white/5 pb-1 mb-2">
                     Console Réseau
                   </span>
-                  <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs text-slate-300 leading-normal scrollbar-thin">
+                  <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs text-slate-300 leading-normal scrollbar-thin network-console-logs">
                     {logs.map((log, index) => (
                       <div
                         key={`${log.id}-${index}`}
@@ -4145,59 +4237,6 @@ const FlowLegend = memo(function FlowLegend({ className }: { className?: string 
   )
 })
 
-const hudStatToneClassNames: Record<HudStatTone, string> = {
-  cyan: 'hud-card-cyan',
-  yellow: 'hud-card-yellow',
-  emerald: 'hud-card-emerald',
-  violet: 'hud-card-violet',
-  orange: 'hud-card-orange',
-}
-
-const HudStatCard = memo(function HudStatCard({
-  label,
-  value,
-  detail,
-  icon,
-  tone,
-  className = '',
-  detailClassName = '',
-  detailTitle,
-  subdetail,
-  subdetailTitle,
-  valueTitle,
-}: HudStatCardProps) {
-  return (
-    <motion.div
-      className={`hud-card ${hudStatToneClassNames[tone]} control-panel ${className}`}
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2 }}
-    >
-      <div className="hud-card-accent" />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="hud-card-label">{label}</p>
-          <div className="hud-card-value" title={valueTitle}>
-            {value}
-          </div>
-        </div>
-        <div className="hud-card-icon">
-          {icon}
-        </div>
-      </div>
-      <div className="hud-card-footer">
-        <span className={`hud-card-detail ${detailClassName}`} title={detailTitle}>
-          {detail}
-        </span>
-        {subdetail ? (
-          <span className="hud-card-subdetail" title={subdetailTitle}>
-            {subdetail}
-          </span>
-        ) : null}
-      </div>
-    </motion.div>
-  )
-})
-
 const getSignalStatus = (ratio: number) =>
   ratio >= 1.08 ? 'Surplus' : ratio >= 0.92 ? 'Équilibre' : 'Déficit'
 
@@ -4220,7 +4259,7 @@ const SignalEnergyGaugeCard = memo(function SignalEnergyGaugeCard({
 
   return (
     <motion.div
-      className="hud-card hud-card-cyan control-panel"
+      className="hud-card hud-card-cyan hud-card-signal control-panel col-span-2 md:col-span-1 lg:col-span-1"
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
     >
@@ -4301,11 +4340,11 @@ const GeneratorNodeValue = memo(function GeneratorNodeValue({
 
   return (
     <div className="producer-node-body">
-      <div className="producer-node-meta">
+      <div className="producer-node-output-row">
         <span className="producer-node-tier" title={levelInfo?.currentName}>
           {levelInfo?.currentName ?? 'À débloquer'}
         </span>
-        <span className="producer-node-power">{formatEnergyRate(currentProduction)}</span>
+        <span className="producer-node-power">+{formatEnergyRate(currentProduction)}</span>
       </div>
       <div className="producer-node-progress" style={{ '--producer-progress': levelProgress } as CSSProperties}>
         <span />
@@ -4405,6 +4444,7 @@ const UpgradeRow = memo(function UpgradeRow({
   currentValueLabel,
   tone,
   children,
+  isPurchasePulsing = false,
   isDisabled = false,
   disabledReason,
   isMaxed = false,
@@ -4413,13 +4453,7 @@ const UpgradeRow = memo(function UpgradeRow({
   const UpgradeIcon = upgrade.icon
   const effectLabel = currentValueLabel.replace(/^Actuel:\s*/, '')
   const buttonDisabled = !isAffordable || isDisabled
-  const actionLabel = buttonDisabled
-    ? isMaxed
-      ? 'Complet'
-      : 'Améliorer'
-    : upgrade.level === 0
-      ? 'Débloquer'
-      : 'Améliorer'
+  const actionLabel = isMaxed ? 'Complet' : upgrade.level === 0 ? 'Débloquer' : 'Améliorer'
   const hint =
     disabledReason ??
     (!isInteractiveMode
@@ -4430,55 +4464,97 @@ const UpgradeRow = memo(function UpgradeRow({
           : 'Fonds insuffisants'
         : '')
 
+  const maxLevel = getTechUpgradeMaxLevel(upgrade.id)
+  const isLocked = upgrade.level === 0
+  const levelChipLabel = isMaxed ? 'Niveau MAX' : `Niveau ${upgrade.level}`
+  const nextLevelLabel = `Niveau ${Math.min(upgrade.level + 1, maxLevel)}`
+
   return (
-    <div className={`shop-item shop-item-${tone} text-xs`}>
-      <div className="shop-item-main">
-        <div className="shop-item-icon">
+    <div className={`shop-item shop-item-${tone} upgrade-detail-card system-upgrade-card text-xs ${isMaxed ? 'shop-item-complete' : ''} ${isPurchasePulsing ? 'shop-item-purchase-burst' : ''}`}>
+      <div className="upgrade-detail-header">
+        <div className="shop-item-icon upgrade-detail-icon">
           <UpgradeIcon className="h-4 w-4" />
         </div>
-        <div className="shop-item-copy">
-          <div className="shop-item-title-row">
-            <span className="shop-item-title" title={upgrade.name}>
+        <div className="upgrade-detail-heading">
+          <div className="upgrade-detail-title-row">
+            <span className="upgrade-detail-title" title={upgrade.name}>
               {upgrade.name}
             </span>
-            <span className="shop-level-chip">Niveau {upgrade.level}</span>
+            <span className="shop-level-chip">{levelChipLabel}</span>
           </div>
-          <p className="shop-item-description">{upgrade.description}</p>
-          <div className="shop-metric-grid">
-            <span className="shop-metric">
-              <span>Niveau actuel</span>
-              <strong>{`Niveau ${upgrade.level}`}</strong>
-            </span>
-            <span className="shop-metric">
-              <span>Effet actuel</span>
-              <strong>{effectLabel}</strong>
-            </span>
-            <span className="shop-metric shop-metric-cost">
-              <span>Coût</span>
-              <strong>{formatMoney(cost)}</strong>
-            </span>
-          </div>
+          <p className="upgrade-detail-description">{tone === 'cyan' ? 'Module du Nœud central' : 'Recherche réseau'}</p>
         </div>
       </div>
 
-      <div className="shop-item-actions">
-        <span className="shop-action-hint">
-          {buttonDisabled ? hint : ''}
-        </span>
-        <button
-          disabled={buttonDisabled}
-          onClick={onBuy}
-          className={`shop-action-button ${tone === 'cyan' ? 'shop-action-cyan' : 'shop-action-violet'}`}
-        >
-          {actionLabel}
-        </button>
-      </div>
+      {isLocked ? (
+        <div className="upgrade-detail-section upgrade-detail-section-next">
+          <span className="upgrade-detail-section-title">Déblocage</span>
+          <span className="upgrade-detail-next-name" title={`${upgrade.name} · ${nextLevelLabel}`}>
+            {upgrade.name} · {nextLevelLabel}
+          </span>
+          <div className="upgrade-detail-flow-line">
+            <span className="upgrade-detail-flow-energy">⚙ {nextLevelLabel}</span>
+            <span className="upgrade-detail-arrow">→</span>
+            <span className="upgrade-detail-flow-target">Module actif</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="upgrade-detail-section">
+            <span className="upgrade-detail-section-title">Actuel</span>
+            <div className="upgrade-detail-flow-line">
+              <span className="upgrade-detail-flow-target">{effectLabel}</span>
+            </div>
+          </div>
+
+          <div className="upgrade-detail-section upgrade-detail-section-next">
+            <span className="upgrade-detail-section-title">
+              {isMaxed ? 'Niveau maximum' : 'Prochaine amélioration'}
+            </span>
+            {isMaxed ? (
+              <div className="upgrade-detail-flow-line upgrade-detail-flow-muted">
+                <span>Module entièrement amélioré</span>
+              </div>
+            ) : (
+              <>
+                <span className="upgrade-detail-next-name" title={`${upgrade.name} · ${nextLevelLabel}`}>
+                  {upgrade.name} · {nextLevelLabel}
+                </span>
+                <div className="upgrade-detail-flow-line">
+                  <span className="upgrade-detail-flow-energy">⚙ {nextLevelLabel}</span>
+                  <span className="upgrade-detail-arrow">→</span>
+                  <span className="upgrade-detail-flow-target">Impact réseau renforcé</span>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {children ? (
         <div className="shop-item-extra">
           {children}
         </div>
       ) : null}
+
+      <div className="upgrade-detail-footer">
+        <div className="upgrade-detail-economics">
+          <span className="upgrade-detail-cost">💰 {isMaxed ? 'Complet' : formatMoney(cost)}</span>
+          <span className="upgrade-detail-payback">⏱ {isMaxed ? 'Optimisation terminée' : 'Effet immédiat'}</span>
+        </div>
+        <div className="upgrade-detail-action-stack">
+          <button
+            disabled={buttonDisabled}
+            onClick={onBuy}
+            className={`shop-action-button ${tone === 'cyan' ? 'shop-action-cyan' : 'shop-action-violet'} upgrade-detail-action`}
+          >
+            {actionLabel}
+          </button>
+          {buttonDisabled && hint ? (
+            <span className="upgrade-detail-hint">{hint}</span>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 })
@@ -4489,6 +4565,7 @@ export const EnergyNode = memo(function EnergyNode({
   value,
   color,
   className,
+  levelBadge,
   isEmphasized = false,
   onClick,
   actionLabel,
@@ -4505,7 +4582,7 @@ export const EnergyNode = memo(function EnergyNode({
     <motion.div
       className={`energy-node absolute z-20 flex flex-col justify-center gap-0.5 rounded-lg border bg-slate-950/75 p-2 ${className} ${
         onClick ? 'cursor-pointer hover:border-cyan-300' : ''
-      }`}
+      } ${isEmphasized ? 'energy-node-active' : 'energy-node-idle'}`}
       style={{ '--node-color': color } as CSSProperties}
       animate={{
         boxShadow: isEmphasized
@@ -4529,8 +4606,13 @@ export const EnergyNode = memo(function EnergyNode({
           {renderedIcon}
         </span>
         <div className="min-w-0 flex-1">
-          <span className="energy-node-label block truncate text-xs font-bold leading-none text-slate-300" title={label}>
-            {label}
+          <span className="energy-node-title-row">
+            <span className="energy-node-label block truncate text-xs font-bold leading-none text-slate-300" title={label}>
+              {label}
+            </span>
+            {levelBadge ? (
+              <span className="energy-node-level-badge">{levelBadge}</span>
+            ) : null}
           </span>
           <div className="energy-node-value mt-0.5 text-xs font-extrabold leading-none text-white">
             {value}
@@ -4754,7 +4836,7 @@ export const EnergyChart = memo(function EnergyChart({ data, emptyLabel = 'Aucun
             </span>
             <span className="inline-flex items-center gap-1 text-orange-200">
               <span className="h-1.5 w-4 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.55)]" />
-              Conso {formatSignedEnergyRate(-chartSummary.latestConsumption)}
+              Consommateur {formatSignedEnergyRate(-chartSummary.latestConsumption)}
             </span>
           </div>
         </div>
@@ -4768,7 +4850,7 @@ export const EnergyChart = memo(function EnergyChart({ data, emptyLabel = 'Aucun
             {chartSummary.maxDeficitHour !== '--' ? ` · ${chartSummary.maxDeficitHour}` : ''}
           </span>
           <span className="energy-signal-chip text-orange-100">
-            Pic conso {formatSignedEnergyRate(-chartSummary.peakConsumption)} · {chartSummary.peakConsumptionHour}
+            Pic consommateur {formatSignedEnergyRate(-chartSummary.peakConsumption)} · {chartSummary.peakConsumptionHour}
           </span>
           <span className="energy-signal-chip text-sky-200">Réserve {Math.round(chartSummary.latestBattery)}%</span>
           <span className="energy-signal-chip text-violet-200">Gain {formatMoney(chartSummary.latestCost)}</span>
@@ -4832,7 +4914,7 @@ export const EnergyChart = memo(function EnergyChart({ data, emptyLabel = 'Aucun
                 <strong>{formatGaugeRate(chartSummary.latestProduction)}</strong>
               </div>
               <div className="energy-gauge-metric energy-gauge-metric-consumption">
-                <span>Conso</span>
+                <span>Consommateur</span>
                 <strong>{formatGaugeRate(-chartSummary.latestConsumption)}</strong>
               </div>
               <div className={`energy-gauge-metric ${chartSummary.latestBalance >= 0 ? 'energy-gauge-metric-surplus' : 'energy-gauge-metric-deficit'}`}>
