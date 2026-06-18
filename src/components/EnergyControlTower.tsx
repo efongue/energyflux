@@ -30,6 +30,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { PixiEnergyNetwork } from './PixiEnergyNetwork'
+import { GeneratorVisualAsset } from './GeneratorVisualAsset'
 import type { PixiEnergyFlow } from './PixiEnergyNetwork'
 import { formatCompactUnit, formatEnergy, formatEnergyRate, formatSignedEnergyRate } from '../utils/energyUnits'
 import backgroundMusicUrl from '../../flux_energie_incremental_loop.mp3'
@@ -2935,7 +2936,7 @@ export function EnergyControlTower() {
       return (
         <EnergyNode
           key={producerId}
-          icon={generator.icon}
+          icon={<GeneratorVisualAsset id={producerId} level={producerLevel} color={generator.color} />}
           label={mapProducerFamilyLabels[producerId]}
           levelBadge={formatNodeLevelBadge(producerLevel)}
           value={<GeneratorNodeValue generator={generator} multiplier={multiplier} />}
@@ -3852,7 +3853,9 @@ export function EnergyControlTower() {
                             className={`shop-item shop-item-cyan upgrade-detail-card producer-upgrade-card text-xs ${shouldPulseStarter ? 'shop-item-launch-pulse' : ''} ${levelInfo.isMaxLevel ? 'shop-item-complete' : ''} ${isGeneratorPurchasePulsing ? 'shop-item-purchase-burst' : ''}`}
                           >
                             <div className="upgrade-detail-header">
-                              <span className="shop-item-icon upgrade-detail-icon text-xl leading-none">{gen.icon}</span>
+                              <span className="shop-item-icon upgrade-detail-icon text-xl leading-none">
+                                <GeneratorVisualAsset id={gen.id} level={gen.level} color={gen.color} />
+                              </span>
                               <div className="upgrade-detail-heading">
                                 <div className="upgrade-detail-title-row">
                                   <span className="upgrade-detail-title" title={isLocked ? levelInfo.shopName : levelInfo.currentName}>
