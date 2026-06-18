@@ -146,7 +146,7 @@ const shopTabs: ReadonlyArray<{
 
 const STARTING_MONEY = 600
 const MARKET_BASE_SELL_RATE = 0.08
-const CONSUMER_REVENUE_MULTIPLIER = 5
+const CONSUMER_REVENUE_MULTIPLIER = 8
 
 const DEMO_STANDARD_GENERATOR_LEVELS: Readonly<Record<string, number>> = {
   solar: 3,
@@ -163,13 +163,13 @@ const DEMO_STANDARD_GENERATOR_LEVELS: Readonly<Record<string, number>> = {
 const showDebugControls = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG === 'true'
 
 const mapPanelClassName =
-  'control-panel energy-map-panel relative min-h-[430px] lg:flex-1 overflow-hidden rounded-lg border border-cyan-200/15 lg:min-h-[480px]'
+  'control-panel energy-map-panel relative min-h-[700px] sm:min-h-[660px] md:min-h-[620px] xl:flex-1 xl:min-h-[520px] overflow-hidden rounded-lg border border-cyan-200/15'
 
 const mapGridClassName =
-  'grid min-h-[430px] flex-1 gap-3 lg:min-h-[480px] lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]'
+  'energy-main-grid grid min-h-[700px] flex-1 gap-3 sm:min-h-[660px] md:min-h-[620px] xl:min-h-[520px] xl:grid-cols-[minmax(780px,1fr)_360px] 2xl:grid-cols-[minmax(860px,1fr)_380px]'
 
 const mapHubClassName =
-  'energy-hub absolute left-1/2 top-[45%] z-20 flex h-[140px] w-[162px] flex-col items-center justify-center rounded-lg text-center relative lg:h-[159px] lg:w-[184px]'
+  'energy-hub absolute left-1/2 top-[45%] z-20 flex h-[126px] w-[146px] flex-col items-center justify-center rounded-lg text-center relative md:h-[140px] md:w-[162px] xl:h-[159px] xl:w-[184px]'
 
 const mapHubMotionStyle = {
   x: '-50%',
@@ -233,16 +233,16 @@ const mapNodePositions: Record<MapProducerId | MapConsumerId | 'export' | 'stora
   coal: 'left-[4%] top-[67%]',
   nuclear: 'left-[4%] top-[77%]',
   fusion: 'left-[4%] top-[87%]',
-  residential: 'left-[59%] top-[7%] sm:left-[64%] lg:left-[77%]',
-  commerce: 'left-[59%] top-[18%] sm:left-[64%] lg:left-[77%]',
-  industry: 'left-[59%] top-[29%] sm:left-[64%] lg:left-[77%]',
-  publicServices: 'left-[59%] top-[40%] sm:left-[64%] lg:left-[77%]',
-  transport: 'left-[59%] top-[51%] sm:left-[64%] lg:left-[77%]',
-  data: 'left-[59%] top-[62%] sm:left-[64%] lg:left-[77%]',
-  research: 'left-[59%] top-[73%] sm:left-[64%] lg:left-[77%]',
-  climate: 'left-[59%] top-[84%] sm:left-[64%] lg:left-[77%]',
-  storage: 'left-[30%] top-[70%]',
-  export: 'left-[44%] top-[70%] sm:left-[50%] lg:left-[55%]',
+  residential: 'right-[4%] top-[7%]',
+  commerce: 'right-[4%] top-[18%]',
+  industry: 'right-[4%] top-[29%]',
+  publicServices: 'right-[4%] top-[40%]',
+  transport: 'right-[4%] top-[51%]',
+  data: 'right-[4%] top-[62%]',
+  research: 'right-[4%] top-[73%]',
+  climate: 'right-[4%] top-[84%]',
+  storage: 'left-[5%] top-[72%] sm:left-[18%] md:left-[22%] xl:left-[30%]',
+  export: 'right-[5%] top-[72%] sm:right-[18%] md:right-[22%] xl:right-[30%]',
 }
 
 const HUB_ANCHOR_POINT = { x: 500, y: 279 }
@@ -252,7 +252,7 @@ const STORAGE_TIERS: readonly StorageTier[] = [
   {
     level: 1,
     name: 'Module de stockage',
-    capacity: 1000,
+    capacity: 2000,
     description: 'Capacité tampon pour stocker les excédents.',
   },
   {
@@ -287,11 +287,6 @@ const getStorageTier = (level: number) => {
 
 const getStorageTierLabel = (level: number) =>
   getStorageTier(level)?.name ?? 'Stockage de base'
-
-const getStorageNextTier = (level: number) => {
-  const nextIndex = Math.min(Math.max(Math.round(level), 0), STORAGE_MAX_LEVEL)
-  return STORAGE_TIERS[nextIndex] ?? null
-}
 
 const clampToStorage = (value: number, capacity: number) =>
   Math.max(0, Math.min(capacity, value))
@@ -352,16 +347,6 @@ const TAGLINE_SCREEN_STEP_MS = 850
 const START_MODE_ZOOM_MS = 460
 
 const FLOW_PARTICLE_UNIT_VALUES = [1000, 100, 10, 1] as const
-
-type ObjectiveFireworkParticle = {
-  id: number
-  angle: number
-  distance: number
-  size: number
-  hue: number
-  delay: number
-  duration: number
-}
 
 type EnergyObjective = {
   key: string
@@ -480,28 +465,6 @@ const getFlowParticleDemand = (absValue: number) => {
 
   const cap = getFlowParticleCap(absValue)
   return Math.min(total, cap)
-}
-
-const buildObjectiveFireworks = (seed: number): ObjectiveFireworkParticle[] => {
-  const count = 24
-  return Array.from({ length: count }, (_, index) => {
-    const angle = ((index * 17 + seed * 7) * Math.PI) / 16
-    const distance = 90 + (index % 6) * 14
-    const size = 2 + (index % 4)
-    const hue = (seed * 43 + index * 13) % 360
-    const delay = (index % 8) * 0.02
-    const duration = 1.1 + (index % 4) * 0.09
-
-    return {
-      id: index,
-      angle,
-      distance,
-      size,
-      hue,
-      delay,
-      duration,
-    }
-  })
 }
 
 const distributeParticleBudget = (requested: number[], globalBudget: number) => {
@@ -753,6 +716,7 @@ type ConsumerLevel = {
   name: string
   demandWhPerMinute: number
   revenuePerMinute: number
+  cost: number
 }
 
 type UpgradeState = {
@@ -783,7 +747,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Solaire',
     levels: ['Toiture solaire', 'Ferme solaire', 'Parc solaire avec stockage'],
     level: 0,
-    baseCost: 180,
+    baseCost: 150,
     costMultiplier: 1.18,
     baseProduction: 50,
     productionByLevel: [50, 100, 300],
@@ -795,7 +759,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Éolien',
     levels: ['Petite éolienne', 'Parc éolien terrestre', 'Parc éolien offshore'],
     level: 0,
-    baseCost: 600,
+    baseCost: 500,
     costMultiplier: 1.21,
     baseProduction: 500,
     icon: '🌬️',
@@ -806,7 +770,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Biomasse',
     levels: ['Générateur biomasse', 'Centrale biomasse', 'Complexe bioénergie'],
     level: 0,
-    baseCost: 8200,
+    baseCost: 5800,
     costMultiplier: 1.24,
     baseProduction: 5000,
     icon: '🪵',
@@ -817,7 +781,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Hydro',
     levels: ['Micro-turbine', 'Petite centrale hydro', 'Barrage hydroélectrique'],
     level: 0,
-    baseCost: 19000,
+    baseCost: 13500,
     costMultiplier: 1.26,
     baseProduction: 8000,
     icon: '💧',
@@ -828,7 +792,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Géothermie',
     levels: ['Puits géothermique', 'Centrale géothermique', 'Géothermie profonde'],
     level: 0,
-    baseCost: 28000,
+    baseCost: 20000,
     costMultiplier: 1.28,
     baseProduction: 50000,
     icon: '🔥',
@@ -839,7 +803,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Gaz',
     levels: ['Générateur au gaz', 'Turbine à gaz', 'Centrale à cycle combiné'],
     level: 0,
-    baseCost: 58000,
+    baseCost: 42000,
     costMultiplier: 1.3,
     baseProduction: 500000,
     icon: '⛽',
@@ -850,7 +814,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Charbon',
     levels: ['Petite centrale charbon', 'Centrale charbon', 'Centrale charbon supercritique'],
     level: 0,
-    baseCost: 102000,
+    baseCost: 72000,
     costMultiplier: 1.32,
     baseProduction: 3000000,
     icon: '⬛',
@@ -861,7 +825,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Nucléaire',
     levels: ['Petit réacteur modulaire', 'Centrale nucléaire', 'Complexe nucléaire'],
     level: 0,
-    baseCost: 174000,
+    baseCost: 125000,
     costMultiplier: 1.34,
     baseProduction: 16700000,
     icon: '⚛️',
@@ -872,7 +836,7 @@ const initialGenerators: GeneratorState[] = [
     name: 'Fusion',
     levels: ['Prototype de fusion', 'Réacteur de fusion', 'Centrale de fusion'],
     level: 0,
-    baseCost: 280000,
+    baseCost: 200000,
     costMultiplier: 1.38,
     baseProduction: 50000000,
     icon: '🌀',
@@ -939,6 +903,9 @@ const getConsumerRevenuePerMinute = (consumer: ConsumptionUpgradeState) =>
 const getNextConsumerLevel = (consumer: ConsumptionUpgradeState) =>
   consumer.level < consumer.levels.length ? consumer.levels[consumer.level] : null
 
+const getConsumerUpgradeCost = (consumer: ConsumptionUpgradeState) =>
+  getNextConsumerLevel(consumer)?.cost ?? 0
+
 const getConsumerLevelSummary = (consumer: ConsumptionUpgradeState) => {
   const activeLevel = getActiveConsumerLevel(consumer)
   return activeLevel ? activeLevel.name : 'À débloquer'
@@ -953,7 +920,7 @@ const getClickPowerForLevel = (level: number) => {
 const initialTechUpgrades: UpgradeState[] = [
   { id: 'click', name: 'Amplification de Clic', description: 'Puissance de clic progressive jusqu’à 5 MWh/clic', level: 1, baseCost: 320, costMultiplier: 1.35, icon: Zap },
   { id: 'gridSell', name: 'Arbitrage Boursier', description: '+20% de revenus par Wh vendu à la bourse', level: 0, baseCost: 1200, costMultiplier: 1.32, icon: Coins },
-  { id: 'storage', name: 'Stockage', description: 'Capacité de réserve (3 paliers)', level: 0, baseCost: 1000, costMultiplier: 1.28, icon: BatteryCharging },
+  { id: 'storage', name: 'Stockage', description: 'Capacité de réserve (3 paliers)', level: 0, baseCost: 500, costMultiplier: 1.28, icon: BatteryCharging },
   { id: 'smartAI', name: 'Rendement Global', description: '+10% de production globale', level: 0, baseCost: 3200, costMultiplier: 1.34, icon: BrainCircuit },
   { id: 'chartUnlock', name: 'Courbe Financière', description: 'Débloque le graphique du marché en temps réel', level: 0, baseCost: 9500, costMultiplier: 2.0, icon: Activity },
 ]
@@ -981,9 +948,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Évolution de la charge domestique de la ville.',
     level: 0,
     levels: [
-      { name: 'Maisons', demandWhPerMinute: 20, revenuePerMinute: 2 },
-      { name: 'Immeubles', demandWhPerMinute: 300, revenuePerMinute: 7 },
-      { name: 'Quartier résidentiel intelligent', demandWhPerMinute: 5000, revenuePerMinute: 20 },
+      { name: 'Maisons', demandWhPerMinute: 80, revenuePerMinute: 4, cost: 1200 },
+      { name: 'Immeubles', demandWhPerMinute: 2000, revenuePerMinute: 120, cost: 28000 },
+      { name: 'Quartier résidentiel intelligent', demandWhPerMinute: 25000, revenuePerMinute: 1800, cost: 400000 },
     ],
     baseCost: 1200,
     costMultiplier: 1.28,
@@ -996,9 +963,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Activité marchande et bâtiments tertiaires.',
     level: 0,
     levels: [
-      { name: 'Magasins', demandWhPerMinute: 100, revenuePerMinute: 4 },
-      { name: 'Centre commercial', demandWhPerMinute: 10000, revenuePerMinute: 45 },
-      { name: "Quartier d'affaires", demandWhPerMinute: 100000, revenuePerMinute: 220 },
+      { name: 'Magasins', demandWhPerMinute: 250, revenuePerMinute: 18, cost: 2400 },
+      { name: 'Centre commercial', demandWhPerMinute: 30000, revenuePerMinute: 1800, cost: 350000 },
+      { name: "Quartier d'affaires", demandWhPerMinute: 750000, revenuePerMinute: 54000, cost: 14000000 },
     ],
     baseCost: 2400,
     costMultiplier: 1.3,
@@ -1011,11 +978,11 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Demande productive, lourde et régulière.',
     level: 0,
     levels: [
-      { name: 'Atelier', demandWhPerMinute: 1000, revenuePerMinute: 12 },
-      { name: 'Usine', demandWhPerMinute: 50000, revenuePerMinute: 160 },
-      { name: 'Complexe industriel', demandWhPerMinute: 500000, revenuePerMinute: 1200 },
+      { name: 'Atelier', demandWhPerMinute: 1500, revenuePerMinute: 90, cost: 15000 },
+      { name: 'Usine', demandWhPerMinute: 150000, revenuePerMinute: 10500, cost: 2000000 },
+      { name: 'Complexe industriel', demandWhPerMinute: 5000000, revenuePerMinute: 400000, cost: 120000000 },
     ],
-    baseCost: 4600,
+    baseCost: 15000,
     costMultiplier: 1.31,
     icon: Factory,
     color: '#fb923c',
@@ -1026,9 +993,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Infrastructures essentielles et charge urbaine critique.',
     level: 0,
     levels: [
-      { name: 'Éclairage public', demandWhPerMinute: 200, revenuePerMinute: 3 },
-      { name: 'Hôpital', demandWhPerMinute: 20000, revenuePerMinute: 90 },
-      { name: 'Réseau urbain critique', demandWhPerMinute: 150000, revenuePerMinute: 600 },
+      { name: 'Éclairage public', demandWhPerMinute: 400, revenuePerMinute: 28, cost: 8000 },
+      { name: 'Hôpital', demandWhPerMinute: 80000, revenuePerMinute: 5600, cost: 1000000 },
+      { name: 'Réseau urbain critique', demandWhPerMinute: 2000000, revenuePerMinute: 160000, cost: 50000000 },
     ],
     baseCost: 8000,
     costMultiplier: 1.32,
@@ -1041,9 +1008,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Mobilité électrique et réseau de charge public.',
     level: 0,
     levels: [
-      { name: 'Bornes de recharge', demandWhPerMinute: 500, revenuePerMinute: 8 },
-      { name: 'Tramway', demandWhPerMinute: 30000, revenuePerMinute: 280 },
-      { name: 'Métro électrique', demandWhPerMinute: 300000, revenuePerMinute: 1800 },
+      { name: 'Bornes de recharge', demandWhPerMinute: 800, revenuePerMinute: 56, cost: 14500 },
+      { name: 'Tramway', demandWhPerMinute: 120000, revenuePerMinute: 9600, cost: 1700000 },
+      { name: 'Métro électrique', demandWhPerMinute: 3500000, revenuePerMinute: 315000, cost: 90000000 },
     ],
     baseCost: 14500,
     costMultiplier: 1.33,
@@ -1056,9 +1023,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Télécoms, serveurs et calcul intensif.',
     level: 0,
     levels: [
-      { name: 'Antenne télécom', demandWhPerMinute: 100, revenuePerMinute: 6 },
-      { name: 'Serveurs locaux', demandWhPerMinute: 5000, revenuePerMinute: 90 },
-      { name: 'Data center', demandWhPerMinute: 200000, revenuePerMinute: 1500 },
+      { name: 'Antenne télécom', demandWhPerMinute: 300, revenuePerMinute: 24, cost: 26000 },
+      { name: 'Serveurs locaux', demandWhPerMinute: 70000, revenuePerMinute: 5600, cost: 1500000 },
+      { name: 'Data center', demandWhPerMinute: 4000000, revenuePerMinute: 360000, cost: 120000000 },
     ],
     baseCost: 26000,
     costMultiplier: 1.34,
@@ -1071,9 +1038,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Formation, laboratoires et innovation énergétique.',
     level: 0,
     levels: [
-      { name: 'École technique', demandWhPerMinute: 300, revenuePerMinute: 10 },
-      { name: 'Laboratoire', demandWhPerMinute: 10000, revenuePerMinute: 220 },
-      { name: 'Centre de recherche énergétique', demandWhPerMinute: 80000, revenuePerMinute: 1500 },
+      { name: 'École technique', demandWhPerMinute: 500, revenuePerMinute: 40, cost: 47000 },
+      { name: 'Laboratoire', demandWhPerMinute: 100000, revenuePerMinute: 8000, cost: 2200000 },
+      { name: 'Centre de recherche énergétique', demandWhPerMinute: 2500000, revenuePerMinute: 225000, cost: 80000000 },
     ],
     baseCost: 47000,
     costMultiplier: 1.35,
@@ -1086,9 +1053,9 @@ const initialConsumptionUpgrades: ConsumptionUpgradeState[] = [
     description: 'Chauffage, climatisation et réseau thermique.',
     level: 0,
     levels: [
-      { name: 'Chauffage résidentiel', demandWhPerMinute: 1000, revenuePerMinute: 9 },
-      { name: 'Climatisation urbaine', demandWhPerMinute: 80000, revenuePerMinute: 350 },
-      { name: 'Réseau thermique intelligent', demandWhPerMinute: 250000, revenuePerMinute: 2200 },
+      { name: 'Chauffage résidentiel', demandWhPerMinute: 1800, revenuePerMinute: 120, cost: 78000 },
+      { name: 'Climatisation urbaine', demandWhPerMinute: 200000, revenuePerMinute: 16000, cost: 4000000 },
+      { name: 'Réseau thermique intelligent', demandWhPerMinute: 6000000, revenuePerMinute: 540000, cost: 160000000 },
     ],
     baseCost: 78000,
     costMultiplier: 1.36,
@@ -1237,6 +1204,7 @@ type EnergyObjectiveInput = {
   isPlayingMode: boolean
   generators: GeneratorState[]
   generationRate: number
+  totalPowerConsumption: number
   storedEnergy: number
   isChartUnlocked: boolean
   manualSellCount: number
@@ -1255,6 +1223,7 @@ type EnergyObjectiveInput = {
 const buildEnergyObjectiveCandidates = ({
   generators,
   generationRate,
+  totalPowerConsumption,
   storedEnergy,
   isChartUnlocked,
   manualSellCount,
@@ -1282,54 +1251,63 @@ const buildEnergyObjectiveCandidates = ({
   return [
     {
       key: 'buy-solar',
-      title: 'Lancer la production',
-      focus: 'Achète une Toiture solaire pour créer une production passive.',
+      title: 'Allumer EnergyFlux',
+      focus: 'Débloque la Toiture solaire : c’est le premier flux continu du réseau.',
       action: `Onglet Production : Toiture solaire niveau 1 (${formatMoney(solarCost)}).`,
       progressCurrent: solar?.level ?? 0,
       progressTarget: 1,
       progressUnit: 'niveau',
-      rewardLabel: 'Production passive',
+      rewardLabel: 'Flux initial',
       isComplete: (solar?.level ?? 0) > 0,
     },
     {
-      key: 'reach-1kw',
-      title: 'Passer au kWh/min',
-      focus: 'Atteins 1 kWh/min pour sortir de l’échelle d’un seul panneau solaire.',
-      action: (wind?.level ?? 0) === 0
-        ? `Onglet Production : achète Petite éolienne dès que possible (${formatMoney(windCost)}).`
-        : `Il manque ${formatEnergyRate(Math.max(1000 - generationRate, 0))}. Améliore une source active.`,
-      progressCurrent: generationRate,
-      progressTarget: 1000,
-      progressUnit: 'Wh/min',
-      rewardLabel: 'Lecture en kWh/min',
-      isComplete: generationRate >= 1000,
+      key: 'connect-first-consumer',
+      title: 'Monétiser la ville',
+      focus: 'Ajoute un premier consommateur pour transformer l’énergie distribuée en revenus réguliers.',
+      action: 'Onglet Consommation : débloque un premier consommateur alimenté par le Cœur du réseau.',
+      progressCurrent: consumptionOptimizationCount,
+      progressTarget: 1,
+      progressUnit: 'niveau',
+      rewardLabel: 'Revenus conso',
+      isComplete: consumptionOptimizationCount >= 1,
     },
     {
-      key: 'store-first-energy',
-      title: 'Créer une réserve',
-      focus: 'Laisse le surplus créer une première réserve vendable.',
-      action: `Réserve actuelle : ${formatEnergy(storedEnergy)}. La vente est disponible dès que la réserve contient de l’énergie.`,
+      key: 'store-first-surplus',
+      title: 'Créer le premier tampon',
+      focus: 'Laisse un surplus entrer dans le stockage de base pour visualiser le flux Cœur → Stockage.',
+      action: `Stockage actuel : ${formatEnergy(storedEnergy)}. Crée un léger surplus avec production ou clic central.`,
       progressCurrent: storedEnergy,
-      progressTarget: 1,
+      progressTarget: 50,
       progressUnit: 'Wh',
-      rewardLabel: 'Vente possible',
-      isComplete: storedEnergy > 0,
+      rewardLabel: 'Surplus stocké',
+      isComplete: storedEnergy >= 50,
     },
     {
       key: 'first-market-order',
-      title: 'Premier ordre de marché',
-      focus: 'Place un ordre de vente à la Bourse énergie pour transformer le stock en trésorerie.',
-      action: 'Clique sur Vendre le stock dès que la réserve contient de l’énergie.',
+      title: 'Vendre une réserve',
+      focus: 'Utilise la bourse pour convertir une partie du stock en trésorerie visible.',
+      action: 'Clique sur Vendre le stock dans la carte Stockage dès que la réserve contient de l’énergie.',
       progressCurrent: manualSellCount,
       progressTarget: 1,
-      progressUnit: 'ordre',
-      rewardLabel: 'Trésorerie',
+      progressUnit: 'vente',
+      rewardLabel: 'Cash bourse',
       isComplete: manualSellCount >= 1,
     },
     {
+      key: 'unlock-storage-tier-1',
+      title: 'Installer le module de stockage',
+      focus: 'Le niveau 1 est maintenant moins cher et double la première vraie capacité de réserve.',
+      action: `Onglet Nœud : débloque ${getStorageTierLabel(1)} (${formatEnergy(getStorageCapacity(1))} max).`,
+      progressCurrent: storageUpgradeLevel,
+      progressTarget: 1,
+      progressUnit: 'niveau',
+      rewardLabel: '2 kWh de réserve',
+      isComplete: storageUpgradeLevel >= 1,
+    },
+    {
       key: 'upgrade-central-node',
-      title: 'Renforcer le nœud central',
-      focus: 'Améliore le clic pour accélérer les premières réserves manuelles.',
+      title: 'Renforcer le clic central',
+      focus: 'Améliore le clic pour accélérer les appoints manuels et remplir plus vite le stockage.',
       action: 'Onglet Nœud : achète Amplification de Clic niveau 2.',
       progressCurrent: Math.max(0, clickUpgradeLevel - 1),
       progressTarget: 1,
@@ -1339,87 +1317,107 @@ const buildEnergyObjectiveCandidates = ({
     },
     {
       key: 'add-second-source',
-      title: 'Diversifier le mix',
-      focus: 'Active une deuxième source pour comparer les flux de production.',
-      action: `Onglet Production : sources actives ${activeMapSources} / 2. Priorité : ${wind?.level ? 'Générateur biomasse' : 'Petite éolienne'}.`,
+      title: 'Diversifier le mix initial',
+      focus: 'Ajoute une deuxième source pour équilibrer production, consommation et surplus vendable.',
+      action: `Onglet Production : sources actives ${activeMapSources} / 2. Priorité : ${wind?.level ? 'Générateur biomasse' : `Petite éolienne (${formatMoney(windCost)})`}.`,
       progressCurrent: activeMapSources,
       progressTarget: 2,
       progressUnit: 'source',
-      rewardLabel: 'Mix énergétique',
+      rewardLabel: 'Mix initial',
       isComplete: hasSecondarySource,
     },
     {
-      key: 'optimize-demand',
-      title: 'Connecter la ville',
-      focus: 'Ajoute des consommateurs pour donner un vrai rôle à ton réseau électrique.',
-      action: 'Onglet Consommation : fais évoluer un consommateur jusqu’au Level 3.',
-      progressCurrent: consumptionOptimizationCount,
-      progressTarget: 3,
-      progressUnit: 'level',
-      rewardLabel: 'Ville alimentée',
-      isComplete: consumptionOptimizationCount >= 3,
+      key: 'reach-1kw',
+      title: 'Passer au kWh/min',
+      focus: 'Atteins 1 kWh/min pour alimenter plusieurs consommateurs sans dépendre du clic.',
+      action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(1000 - generationRate, 0))}.`,
+      progressCurrent: generationRate,
+      progressTarget: 1000,
+      progressUnit: 'Wh/min',
+      rewardLabel: 'Débit stable',
+      isComplete: generationRate >= 1000,
     },
     {
-      key: 'reach-10kw',
-      title: 'Atteindre 10 kWh/min',
-      focus: 'Franchis 10 kWh/min pour rendre les flux plus lisibles sur la carte.',
-      action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(10000 - generationRate, 0))}.`,
-      progressCurrent: generationRate,
-      progressTarget: 10000,
-      progressUnit: 'Wh/min',
-      rewardLabel: 'Flux renforcés',
-      isComplete: generationRate >= 10000,
+      key: 'city-revenue-base',
+      title: 'Stabiliser les revenus consommateurs',
+      focus: 'Ajoute ou améliore des consommateurs : avec les nouveaux revenus, la ville devient ton moteur économique.',
+      action: 'Onglet Consommation : atteins 3 niveaux de consommateurs cumulés, dans un ou plusieurs secteurs.',
+      progressCurrent: consumptionOptimizationCount,
+      progressTarget: 3,
+      progressUnit: 'niveau',
+      rewardLabel: 'Ville rentable',
+      isComplete: consumptionOptimizationCount >= 3,
     },
     {
       key: 'add-biomass',
       title: 'Ajouter la biomasse',
-      focus: 'Active la biomasse pour compléter les trois producteurs visibles de la carte.',
+      focus: 'La biomasse ouvre le premier saut de production significatif après solaire et éolien.',
       action: `Onglet Production : Générateur biomasse niveau 1 (${formatMoney(biomassCost)}).`,
       progressCurrent: biomass?.level ?? 0,
       progressTarget: 1,
       progressUnit: 'niveau',
-      rewardLabel: 'Carte complète',
+      rewardLabel: 'Production renforcée',
       isComplete: (biomass?.level ?? 0) > 0,
     },
     {
-      key: 'upgrade-buffer',
-      title: 'Augmenter la réserve',
-      focus: 'Améliore la capacité tampon pour préparer des ventes plus fortes.',
-      action: storageUpgradeLevel >= STORAGE_MAX_LEVEL
-        ? 'Nœud central : Stockage réseau au Tier 3, capacité maximale atteinte.'
-        : `Onglet Nœud : passe au ${getStorageNextTier(storageUpgradeLevel)?.name ?? 'niveau suivant'} (${formatEnergy(getStorageCapacity(storageUpgradeLevel + 1))} max).`,
-      progressCurrent: storageUpgradeLevel,
-      progressTarget: STORAGE_MAX_LEVEL,
-      progressUnit: 'niveau',
-      rewardLabel: 'Stockage amélioré',
-      isComplete: storageUpgradeLevel >= STORAGE_MAX_LEVEL,
+      key: 'reach-10kw',
+      title: 'Tenir 10 kWh/min',
+      focus: 'Franchis 10 kWh/min pour alimenter la ville tout en gardant du surplus pour stockage ou bourse.',
+      action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(10000 - generationRate, 0))}.`,
+      progressCurrent: generationRate,
+      progressTarget: 10000,
+      progressUnit: 'Wh/min',
+      rewardLabel: 'Surplus exploitable',
+      isComplete: generationRate >= 10000,
     },
     {
       key: 'unlock-chart',
-      title: 'Lire le signal 24h',
-      focus: 'Débloque le graphique pour suivre production horaire, consommation et réserve.',
-      action: `Onglet Recherches : Courbe Financière (${chartUnlockedLevel > 0 ? 'débloqué' : `coût ${formatMoney(chartUnlockCost)}`}).`,
+      title: 'Lire la courbe financière',
+      focus: 'Débloque la Courbe Financière pour suivre le cours de la bourse directement dans l’amélioration.',
+      action: `Onglet Recherches : Courbe Financière (${chartUnlockedLevel > 0 ? 'débloquée' : `coût ${formatMoney(chartUnlockCost)}`}).`,
       progressCurrent: isChartUnlocked ? 1 : 0,
       progressTarget: 1,
       progressUnit: 'niveau',
-      rewardLabel: 'Lecture 24h',
+      rewardLabel: 'Marché lisible',
       isComplete: isChartUnlocked,
     },
     {
+      key: 'storage-tier-2',
+      title: 'Passer à la banque de batteries',
+      focus: 'Le niveau 2 change d’échelle : 1 MWh de capacité pour absorber les vrais excédents.',
+      action: `Onglet Nœud : atteins ${getStorageTierLabel(2)} (${formatEnergy(getStorageCapacity(2))} max).`,
+      progressCurrent: storageUpgradeLevel,
+      progressTarget: 2,
+      progressUnit: 'niveau',
+      rewardLabel: '1 MWh stockable',
+      isComplete: storageUpgradeLevel >= 2,
+    },
+    {
       key: 'generator-expansion',
-      title: 'Renforcer le parc',
-      focus: 'Atteins 6 niveaux cumulés sur tes producteurs.',
-      action: `Niveaux cumulés : ${totalGeneratorLevels} / 6.`,
+      title: 'Renforcer le parc producteur',
+      focus: 'Atteins 6 niveaux cumulés sur les producteurs pour solidifier le débit avant les sources lourdes.',
+      action: `Niveaux producteurs cumulés : ${totalGeneratorLevels} / 6.`,
       progressCurrent: totalGeneratorLevels,
       progressTarget: 6,
       progressUnit: 'niveau',
-      rewardLabel: 'Débit stabilisé',
+      rewardLabel: 'Parc renforcé',
       isComplete: totalGeneratorLevels >= 6,
+    },
+    {
+      key: 'research-depth',
+      title: 'Structurer les améliorations',
+      focus: 'Combine stockage, arbitrage boursier, clic et rendement global pour accélérer l’économie.',
+      action: `Améliorations validées : ${improvedResearchCount} / 3.`,
+      progressCurrent: improvedResearchCount,
+      progressTarget: 3,
+      progressUnit: 'amélioration',
+      rewardLabel: 'Infrastructure optimisée',
+      isComplete: improvedResearchCount >= 3,
     },
     {
       key: 'reach-100kw',
       title: 'Entrer en phase industrielle',
-      focus: 'Franchis 100 kWh/min pour préparer les sources avancées.',
+      focus: 'Franchis 100 kWh/min pour rendre utiles les gros consommateurs et préparer les sources avancées.',
       action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(100000 - generationRate, 0))}.`,
       progressCurrent: generationRate,
       progressTarget: 100000,
@@ -1429,9 +1427,9 @@ const buildEnergyObjectiveCandidates = ({
     },
     {
       key: 'add-advanced-source',
-      title: 'Débloquer une source avancée',
-      focus: 'Ajoute une nouvelle filière pour découvrir hydro, géothermie, gaz, charbon, nucléaire ou fusion.',
-      action: `Prochaine source : ${nextAdvancedSourceName}.`,
+      title: 'Ouvrir une filière avancée',
+      focus: 'Ajoute une filière hydro, géothermie, gaz, charbon, nucléaire ou fusion pour changer d’échelle.',
+      action: `Prochaine source disponible : ${nextAdvancedSourceName}.`,
       progressCurrent: advancedGeneratorCount,
       progressTarget: 1,
       progressUnit: 'source',
@@ -1439,9 +1437,20 @@ const buildEnergyObjectiveCandidates = ({
       isComplete: advancedGeneratorCount >= 1,
     },
     {
+      key: 'city-revenue-network',
+      title: 'Absorber la puissance industrielle',
+      focus: 'Augmente la demande pour que la production industrielle serve réellement la ville au lieu de partir uniquement en surplus.',
+      action: `Consommation actuelle : ${formatEnergyRate(totalPowerConsumption)}. Vise ${formatEnergyRate(1000000)} pour créer une demande métropolitaine.`,
+      progressCurrent: totalPowerConsumption,
+      progressTarget: 1000000,
+      progressUnit: 'Wh/min',
+      rewardLabel: 'Demande métropolitaine',
+      isComplete: totalPowerConsumption >= 1000000,
+    },
+    {
       key: 'multi-sources',
       title: 'Construire un mix complet',
-      focus: 'Active 4 sources différentes pour répartir la production.',
+      focus: 'Active 4 sources différentes pour répartir le débit et multiplier les flux visibles.',
       action: `Sources actives : ${upgradedGeneratorCount} / 4.`,
       progressCurrent: upgradedGeneratorCount,
       progressTarget: 4,
@@ -1450,20 +1459,9 @@ const buildEnergyObjectiveCandidates = ({
       isComplete: upgradedGeneratorCount >= 4,
     },
     {
-      key: 'research-depth',
-      title: 'Structurer la R&D',
-      focus: 'Atteins 3 améliorations de recherche ou de nœud pour accélérer la progression.',
-      action: `Améliorations validées : ${improvedResearchCount} / 3.`,
-      progressCurrent: improvedResearchCount,
-      progressTarget: 3,
-      progressUnit: 'amélioration',
-      rewardLabel: 'R&D active',
-      isComplete: improvedResearchCount >= 3,
-    },
-    {
       key: 'reach-1mw',
       title: 'Franchir 1 MWh/min',
-      focus: 'Passe au MWh/min pour changer d’échelle de réseau.',
+      focus: 'Passe au MWh/min : le réseau peut maintenant porter une ville dense et des ventes massives.',
       action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(1000000 - generationRate, 0))}.`,
       progressCurrent: generationRate,
       progressTarget: 1000000,
@@ -1472,9 +1470,20 @@ const buildEnergyObjectiveCandidates = ({
       isComplete: generationRate >= 1000000,
     },
     {
+      key: 'storage-tier-3',
+      title: 'Déployer la réserve réseau',
+      focus: 'Le niveau 3 donne 1 GWh de capacité : assez pour absorber les excédents des paliers supérieurs.',
+      action: `Onglet Nœud : atteins ${getStorageTierLabel(3)} (${formatEnergy(getStorageCapacity(3))} max).`,
+      progressCurrent: storageUpgradeLevel,
+      progressTarget: 3,
+      progressUnit: 'niveau',
+      rewardLabel: '1 GWh stockable',
+      isComplete: storageUpgradeLevel >= 3,
+    },
+    {
       key: 'reach-10mw',
       title: 'Franchir 10 MWh/min',
-      focus: 'Fais passer le réseau à une échelle métropolitaine.',
+      focus: 'Fais passer le réseau à une échelle métropolitaine avec flux producteurs, consommateurs, bourse et stockage actifs.',
       action: `Production actuelle : ${formatEnergyRate(generationRate)}. Il manque ${formatEnergyRate(Math.max(10000000 - generationRate, 0))}.`,
       progressCurrent: generationRate,
       progressTarget: 10000000,
@@ -1485,7 +1494,7 @@ const buildEnergyObjectiveCandidates = ({
     {
       key: 'six-active-sources',
       title: 'Activer six filières',
-      focus: 'Diversifie fortement le mix pour stabiliser les flux de production.',
+      focus: 'Diversifie fortement le mix pour stabiliser la production et alimenter les gros consommateurs.',
       action: `Sources actives : ${upgradedGeneratorCount} / 6.`,
       progressCurrent: upgradedGeneratorCount,
       progressTarget: 6,
@@ -1495,13 +1504,13 @@ const buildEnergyObjectiveCandidates = ({
     },
     {
       key: 'research-mastery',
-      title: 'Industrialiser la R&D',
-      focus: 'Atteins 5 améliorations réseau pour finaliser l’optimisation.',
+      title: 'Finaliser l’optimisation',
+      focus: 'Atteins 5 améliorations réseau pour maîtriser rendement, stockage, clic et revenus de bourse.',
       action: `Améliorations validées : ${improvedResearchCount} / 5.`,
       progressCurrent: improvedResearchCount,
       progressTarget: 5,
       progressUnit: 'amélioration',
-      rewardLabel: 'Réseau optimisé',
+      rewardLabel: 'Réseau maîtrisé',
       isComplete: improvedResearchCount >= 5,
     },
   ]
@@ -1573,10 +1582,8 @@ export function EnergyControlTower() {
   const [clickPulseToken, setClickPulseToken] = useState(0)
   const pendingHubEnergyRef = useRef(0)
   const hubClickFlushFrameRef = useRef<number | null>(null)
-  const [showObjectiveFireworks, setShowObjectiveFireworks] = useState(false)
-  const [objectiveFireworksToken, setObjectiveFireworksToken] = useState(0)
+  const [showCompletionPopup, setShowCompletionPopup] = useState(false)
   const objectiveCompletionRef = useRef(false)
-  const objectiveFireworksTimeoutRef = useRef<number | null>(null)
   const shownMilestoneFactIdsRef = useRef<Set<string>>(new Set())
   const [isPerformanceMode, setIsPerformanceMode] = useState(false)
   const isPerformanceModeRef = useRef(false)
@@ -1787,10 +1794,6 @@ export function EnergyControlTower() {
       clearTimeout(manualStorageFlowTimeoutRef.current)
       manualStorageFlowTimeoutRef.current = null
     }
-    if (objectiveFireworksTimeoutRef.current) {
-      clearTimeout(objectiveFireworksTimeoutRef.current)
-      objectiveFireworksTimeoutRef.current = null
-    }
     if (hubClickFlushFrameRef.current) {
       cancelAnimationFrame(hubClickFlushFrameRef.current)
       hubClickFlushFrameRef.current = null
@@ -1828,8 +1831,7 @@ export function EnergyControlTower() {
     setManualStorageFlowLabel(0)
     setActiveTab('generators')
     setClickPulseToken(0)
-    setShowObjectiveFireworks(false)
-    setObjectiveFireworksToken(0)
+    setShowCompletionPopup(false)
     setGenerators(initialGenerators.map((generator) => ({ ...generator })))
     setTechUpgrades(initialTechUpgrades.map((upgrade) => ({ ...upgrade })))
     setConsumptionUpgrades(initialConsumptionUpgrades.map((upgrade) => ({ ...upgrade })))
@@ -2283,6 +2285,10 @@ export function EnergyControlTower() {
       ...mapConsumerIds.map((id) => {
         const centralFlow = mapConsumerHubFlows[id] ?? 0
         const marketFlow = mapConsumerMarketFlows[id] ?? 0
+        const consumerDemand = mapConsumptionFlows.byId[id] ?? 0
+        const consumerRevenue = mapConsumptionFlows.revenueById[id] ?? 0
+        const getConsumerFlowRevenue = (flow: number) =>
+          consumerDemand > 0 ? consumerRevenue * Math.min(1, Math.max(0, flow / consumerDemand)) : 0
         const flows: PixiEnergyFlow[] = []
 
         if (centralFlow > 0) {
@@ -2291,7 +2297,8 @@ export function EnergyControlTower() {
             path: pixiFlowPaths[id],
             color: 0xfb923c,
             value: centralFlow,
-            arrivalLabel: `-${formatEnergy(centralFlow)}`,
+            arrivalLabel: `-${formatEnergy(centralFlow)}\n+${formatMoney(getConsumerFlowRevenue(centralFlow))}`,
+            arrivalLabelOffsetX: -32,
             width: getFlowPathWidth(centralFlow, 6),
             maxParticles: flowParticleCaps[id],
             visible: centralFlow > 0,
@@ -2304,7 +2311,8 @@ export function EnergyControlTower() {
             path: marketToConsumerFlowPaths[id],
             color: 0xfacc15,
             value: marketFlow,
-            arrivalLabel: `-${formatEnergy(marketFlow)}`,
+            arrivalLabel: `-${formatEnergy(marketFlow)}\n+${formatMoney(getConsumerFlowRevenue(marketFlow))}`,
+            arrivalLabelOffsetX: -32,
             width: getFlowPathWidth(marketFlow, 6),
             maxParticles: flowParticleCaps[`${id}-market`] ?? 0,
             visible: marketFlow > 0,
@@ -2325,6 +2333,7 @@ export function EnergyControlTower() {
       manualStorageFlowLabel,
       mapConsumerHubFlows,
       mapConsumerMarketFlows,
+      mapConsumptionFlows,
       storageFlowRate,
       flowParticleCaps,
     ],
@@ -2359,7 +2368,7 @@ export function EnergyControlTower() {
     const clickUpgradeLevel = techUpgradesById.get('click')?.level ?? 1
     const storageUpgradeLevel = techUpgradesById.get('storage')?.level ?? 0
     const consumptionOptimizationCount = mapConsumptionUpgrades.reduce(
-      (highestLevel, upgrade) => Math.max(highestLevel, upgrade.level),
+      (totalLevel, upgrade) => totalLevel + upgrade.level,
       0,
     )
 
@@ -2368,6 +2377,7 @@ export function EnergyControlTower() {
       isPlayingMode,
       generators,
       generationRate: totalPassivePowerRate,
+      totalPowerConsumption,
       storedEnergy: displayWatts,
       isChartUnlocked,
       manualSellCount,
@@ -2389,6 +2399,7 @@ export function EnergyControlTower() {
     isChartUnlocked,
     manualSellCount,
     totalPassivePowerRate,
+    totalPowerConsumption,
     generators,
     techUpgrades,
     techUpgradesById,
@@ -2495,23 +2506,8 @@ export function EnergyControlTower() {
     if (objectiveCompletionRef.current) return
 
     objectiveCompletionRef.current = true
-    setObjectiveFireworksToken((prev) => prev + 1)
-    setShowObjectiveFireworks(true)
-    addLog('🎆 Objectifs complets — Félicitations ! Les objectifs ont été franchis.')
-
-    if (objectiveFireworksTimeoutRef.current) {
-      clearTimeout(objectiveFireworksTimeoutRef.current)
-    }
-    objectiveFireworksTimeoutRef.current = window.setTimeout(() => {
-      setShowObjectiveFireworks(false)
-    }, 2400)
-
-    return () => {
-      if (objectiveFireworksTimeoutRef.current) {
-        clearTimeout(objectiveFireworksTimeoutRef.current)
-      }
-      objectiveFireworksTimeoutRef.current = null
-    }
+    setShowCompletionPopup(true)
+    addLog('🎯 Objectifs complets — Félicitations ! Les objectifs ont été franchis.')
   }, [addLog, isPlayingMode, energyObjective.key, energyObjective.isFinalObjective])
 
   // Handle background music lifecycle
@@ -2554,10 +2550,6 @@ export function EnergyControlTower() {
         clearTimeout(manualStorageFlowTimeoutRef.current)
       }
       manualStorageFlowTimeoutRef.current = null
-      if (objectiveFireworksTimeoutRef.current) {
-        clearTimeout(objectiveFireworksTimeoutRef.current)
-      }
-      objectiveFireworksTimeoutRef.current = null
       if (hubClickFlushFrameRef.current) {
         cancelAnimationFrame(hubClickFlushFrameRef.current)
         hubClickFlushFrameRef.current = null
@@ -2636,10 +2628,14 @@ export function EnergyControlTower() {
       const consumptionWhPerMinute = currentTotalPowerConsumption
       const netWhPerMinute = productionWhPerMinute - consumptionWhPerMinute
       const netEnergy = netWhPerMinute * SIMULATED_MINUTES_PER_TICK
-      const deliveredConsumptionWh = Math.max(
+      const locallyDeliveredConsumptionWh = Math.max(
         0,
         Math.min(consumptionWhPerMinute, productionWhPerMinute + currentStoredWatts),
       )
+      const marketDeliveredConsumptionWh = simulationMarketUnlocked
+        ? Math.max(0, consumptionWhPerMinute - locallyDeliveredConsumptionWh)
+        : 0
+      const deliveredConsumptionWh = locallyDeliveredConsumptionWh + marketDeliveredConsumptionWh
       const consumptionSatisfactionRate = consumptionWhPerMinute > 0
         ? Math.min(1, deliveredConsumptionWh / consumptionWhPerMinute)
         : 0
@@ -2842,7 +2838,7 @@ export function EnergyControlTower() {
       return
     }
 
-    const cost = Math.round(upgrade.baseCost * Math.pow(upgrade.costMultiplier, upgrade.level))
+    const cost = getConsumerUpgradeCost(upgrade)
 
     if (money >= cost) {
       SoundEffects.upgrade()
@@ -2896,9 +2892,6 @@ export function EnergyControlTower() {
   const isStorageCapReached = storageCapacity > 0 ? displayWatts >= storageCapacity : false
   const exportNodeColor = displayWatts > MINIMUM_MARKET_SELL_AMOUNT || isStorageCapReached || isManualExportActive ? '#facc15' : '#60a5fa'
   const networkBalance = totalPassivePowerRate - totalPowerConsumption
-  const networkEfficiency = totalPassivePowerRate > 0
-    ? Math.round((networkBalance / totalPassivePowerRate) * 100)
-    : 0
   const networkBalanceLabel = `Solde : ${formatSignedEnergyRate(networkBalance)}`
   const consumerRevenuePerMinute = totalConsumerRevenue * (totalPowerConsumption > 0 ? Math.min(1, (totalPassivePowerRate + displayWatts) / totalPowerConsumption) : 0)
   const netSalesEnergyPerMinute = totalPassivePowerRate - totalPowerConsumption
@@ -3226,6 +3219,80 @@ export function EnergyControlTower() {
             </motion.div>
           </motion.div>
         ) : null}
+        {showCompletionPopup ? (
+          <motion.div
+            className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/78 px-4 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setShowCompletionPopup(false)}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="completion-title"
+              className="relative w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-cyan-300/30 bg-slate-950/96 p-5 shadow-[0_0_48px_rgba(34,211,238,0.24)]"
+              initial={{ opacity: 0, y: 16, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/90 to-transparent" />
+              <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-emerald-300/12 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-16 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
+
+              <div className="relative flex items-start gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-emerald-300/35 bg-emerald-400/12 text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.22)]">
+                  <Target className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                    Parcours complet
+                  </p>
+                  <h2 id="completion-title" className="mt-1 text-xl font-black text-white">
+                    Félicitations, réseau maîtrisé.
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                    Tu as atteint tous les objectifs d’EnergyFlux : production, consommation,
+                    stockage, bourse et optimisation réseau sont opérationnels.
+                  </p>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                    Si tu veux découvrir d’autres produits et SaaS que je développe, explore
+                    l’écosystème Fusion Data Lab.
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowCompletionPopup(false)}
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-white/10 bg-white/[0.055] px-4 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/10"
+                >
+                  Continuer à jouer
+                </button>
+                <a
+                  href="https://fusiondatalab.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-cyan-300/35 bg-cyan-400/18 px-4 text-sm font-black text-cyan-100 transition-colors hover:bg-cyan-400/28"
+                >
+                  Explorer Fusion Data Lab
+                </a>
+                <a
+                  href="https://github.com/efongue/energyflux"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-emerald-300/35 bg-emerald-400/16 px-4 text-sm font-black text-emerald-100 transition-colors hover:bg-emerald-400/26"
+                >
+                  Améliorer sur GitHub
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-3 p-3 lg:h-screen lg:min-h-0 lg:p-4 xl:p-5">
@@ -3445,7 +3512,6 @@ export function EnergyControlTower() {
                 valueTitle={`Consommation : ${formatSignedEnergyRate(-totalPowerConsumption)}`}
                 detail={networkBalanceLabel}
                 detailClassName={networkBalance >= 0 ? 'hud-card-detail-positive' : 'hud-card-detail-negative'}
-                subdetail={`Net ${networkEfficiency}%`}
                 icon={<BatteryCharging className="h-4 w-4" />}
                 tone={networkBalance >= 0 ? 'cyan' : 'orange'}
               />
@@ -3475,12 +3541,12 @@ export function EnergyControlTower() {
             <section className={mapGridClassName}>
               
               {/* LEFT COLUMN: MAP + CHARTS */}
-              <div className="flex flex-col gap-3 min-h-0 lg:overflow-y-auto lg:pr-1.5 scrollbar-thin">
+              <div className="flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pr-1.5 scrollbar-thin">
                 {/* LEFT SIDE: CLICKABLE CITY MAP */}
                 <div
                   className={mapPanelClassName}
                 >
-                <div className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 w-fit select-none">
+                <div className="map-toolbar absolute left-1/2 top-3 z-30 flex w-fit -translate-x-1/2 items-center gap-3 select-none">
                   {/* Fil d'ariane (Breadcrumb) */}
                   <div className="flex items-center rounded-lg border border-white/12 bg-slate-950/70 px-3 py-2 text-[10px] font-semibold text-slate-100 h-9">
                     <div className="flex items-center gap-1.5">
@@ -3501,9 +3567,6 @@ export function EnergyControlTower() {
 
                 <div className="energy-map-bg absolute inset-0" />
                 <div className="energy-grid absolute inset-0" />
-                {isPlayingMode && showObjectiveFireworks ? (
-                  <ObjectiveFireworksOverlay token={objectiveFireworksToken} />
-                ) : null}
 
                 <PixiEnergyNetwork
                   flows={pixiNetworkFlows}
@@ -3571,7 +3634,7 @@ export function EnergyControlTower() {
                     </span>
                   }
                   color={exportNodeColor}
-                  className={mapNodePositions.export}
+                  className={`${mapNodePositions.export} energy-node-export`}
                 />
                 
                 {mapConsumerIds.map((consumerId) => {
@@ -3786,7 +3849,7 @@ export function EnergyControlTower() {
                       {sortedConsumptionUpgrades.map((consumer) => {
                         const nextLevel = getNextConsumerLevel(consumer)
                         const isComplete = !nextLevel
-                        const cost = isComplete ? 0 : Math.round(consumer.baseCost * Math.pow(consumer.costMultiplier, consumer.level))
+                        const cost = isComplete ? 0 : getConsumerUpgradeCost(consumer)
                         const isAffordable = isInteractiveMode && !isComplete && displayMoney >= cost
                         const currentConsumption = totalConsumptionFlows.byId[consumer.id] ?? 0
                         const currentRevenue = getConsumerRevenuePerMinute(consumer)
@@ -3993,65 +4056,6 @@ export function EnergyControlTower() {
   )
 }
 
-
-const ObjectiveFireworksOverlay = memo(function ObjectiveFireworksOverlay({ token }: { token: number }) {
-  const particles = useMemo(() => buildObjectiveFireworks(token), [token])
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-30 overflow-visible">
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          background: 'radial-gradient(circle, rgba(251, 191, 36, 0.95) 0%, rgba(251, 146, 60, 0.8) 50%, rgba(6, 182, 212, 0.2) 100%)',
-          boxShadow: '0 0 16px rgba(251,191,36,0.9)',
-        }}
-        initial={{ scale: 0.2, opacity: 1 }}
-        animate={{ scale: 3.5, opacity: 0 }}
-        transition={{ duration: 1.1, ease: 'easeOut' }}
-      />
-
-      <motion.div
-        className="absolute left-1/2 top-1/2 rounded-md border border-cyan-300/60 bg-white/10 px-3 py-1.5 text-[11px] font-bold tracking-wide text-cyan-100 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_16px_rgba(34,211,238,0.55)]"
-        initial={{ opacity: 0, y: 10, scale: 0.9 }}
-        animate={{ opacity: 1, y: -4, scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-      >
-        Objectifs complets 🎉
-      </motion.div>
-
-      {particles.map((particle) => {
-        const x = Math.cos(particle.angle) * particle.distance
-        const y = Math.sin(particle.angle) * particle.distance
-        const color = `hsl(${particle.hue} 95% 68%)`
-
-        return (
-          <motion.span
-            key={`${token}-${particle.id}`}
-            className="absolute left-1/2 top-1/2 rounded-full"
-            style={{
-              width: particle.size,
-              height: particle.size,
-              backgroundColor: color,
-              boxShadow: `0 0 10px ${color}, 0 0 20px ${color}`,
-            }}
-            initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-            animate={{
-              x,
-              y,
-              opacity: 0,
-              scale: 0,
-            }}
-            transition={{
-              duration: particle.duration,
-              delay: particle.delay,
-              ease: 'easeOut',
-            }}
-          />
-        )
-      })}
-    </div>
-  )
-})
 
 const FlowLegend = memo(function FlowLegend({ className }: { className?: string }) {
   const [isExpanded, setIsExpanded] = useState(false)

@@ -10,6 +10,7 @@ export type PixiEnergyFlow = {
   color: number
   value: number
   arrivalLabel?: string
+  arrivalLabelOffsetX?: number
   width: number
   maxParticles: number
   visible: boolean
@@ -307,7 +308,7 @@ export const PixiEnergyNetwork = memo(function PixiEnergyNetwork({
   const visibleFlowsKey = useMemo(
     () =>
       flows
-        .map((flow) => `${flow.id}:${flow.visible ? 1 : 0}:${Math.round(flow.value)}:${Math.round(flow.width)}:${flow.maxParticles}:${flow.loop === false ? 0 : 1}:${flow.speedMultiplier ?? 1}:${flow.arrivalLabel ?? ''}`)
+        .map((flow) => `${flow.id}:${flow.visible ? 1 : 0}:${Math.round(flow.value)}:${Math.round(flow.width)}:${flow.maxParticles}:${flow.loop === false ? 0 : 1}:${flow.speedMultiplier ?? 1}:${flow.arrivalLabelOffsetX ?? 0}:${flow.arrivalLabel ?? ''}`)
         .join('|'),
     [flows],
   )
@@ -452,7 +453,7 @@ export const PixiEnergyNetwork = memo(function PixiEnergyNetwork({
                     if (labelsRef.current.length >= MAX_FLOATING_LABELS[currentQuality]) return
 
                     const pairedOffsetX = labelTexts.length > 1 ? (labelIndex - (labelTexts.length - 1) / 2) * 48 : 0
-                    const label = createFloatingLabel(labelText, path.end.x + pairedOffsetX, path.end.y, flow.color)
+                    const label = createFloatingLabel(labelText, path.end.x + pairedOffsetX + (flow.arrivalLabelOffsetX ?? 0), path.end.y, flow.color)
                     labelLayer.addChild(label.text)
                     labelsRef.current.push(label)
                   })
